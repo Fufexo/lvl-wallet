@@ -81,29 +81,18 @@ export class Hero {
       const root = this.root().nativeElement;
       const q = (selector: string) => root.querySelector<HTMLElement>(selector);
 
-      const ctx = gsap.context(() => this.intro(root, q), root);
+      const ctx = gsap.context(() => this.tilt(root, q), root);
       this.destroyRef.onDestroy(() => ctx.revert());
     });
   }
 
-  private intro(
-    root: HTMLElement,
-    q: (selector: string) => HTMLElement | null,
-  ): (() => void) | undefined {
+  /**
+   * Subtle 3D tilt that follows the cursor (mouse/trackpad only).
+   * The intro itself is pure CSS (styles.css): it starts on first paint, so the LCP
+   * never waits for hydration or GSAP.
+   */
+  private tilt(root: HTMLElement, q: (selector: string) => HTMLElement | null): (() => void) | undefined {
     const { gsap } = useGsap();
-
-    // Everything around the headline enters with GSAP; index.html keeps these hidden
-    // until now so they never flash in their final position first.
-    const tl = gsap.timeline({ defaults: { ease: 'expo.out', duration: 1.1 } });
-
-    tl.from(q('[data-hero="eyebrow"]'), { autoAlpha: 0, y: 20, duration: 0.8 }, 0)
-      .from(q('[data-hero="lead"]'), { autoAlpha: 0, y: 24 }, 0.55)
-      .from(q('[data-hero="ctas"]'), { autoAlpha: 0, y: 24 }, 0.65)
-      .from(q('[data-hero="card"]'), { autoAlpha: 0, y: 80, rotateX: 14, duration: 1.4 }, 0.35)
-      .from(q('[data-hero="xp"] [data-progress-fill]'), { scaleX: 0, duration: 1.6, ease: 'power3.out' }, 0.9)
-      .from(q('[data-hero="chip"]'), { autoAlpha: 0, x: -30, duration: 0.9 }, 1.1);
-
-    // Subtle 3D tilt that follows the cursor (mouse/trackpad only).
     const card = q('[data-hero="card"]');
     if (!card || !hasFinePointer()) return undefined;
 
