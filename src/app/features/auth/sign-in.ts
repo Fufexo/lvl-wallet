@@ -1,8 +1,21 @@
-import { Component, afterNextRender, inject, input, signal } from '@angular/core';
+import { Component, afterNextRender, inject, input, linkedSignal, signal } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
-import { FormField, FormRoot, form, maxLength, minLength, pattern, required } from '@angular/forms/signals';
+import {
+  FormField,
+  FormRoot,
+  TreeValidationResult,
+  email,
+  form,
+  maxLength,
+  minLength,
+  pattern,
+  required,
+} from '@angular/forms/signals';
 
-import { Session } from '../../core/session';
+import { ApiError, toApiError } from '../../core/api/api-error';
+import { AuthApi } from '../../core/api/auth-api';
+import { Session, SessionMode } from '../../core/session';
 import { Button } from '../../shared/ui/button';
 import { FieldError } from '../../shared/ui/field-error';
 import { Icon } from '../../shared/ui/icon';
@@ -12,93 +25,46 @@ export function safeReturn(url: string | undefined): string {
   return url && /^\/app(\/|\?|$)/.test(url) ? url : '/app';
 }
 
+type Mode = 'demo' | 'login' | 'register';
+
+/** After this long, a pending sign-in explains that the free API server is waking up. */
+const SLOW_MS = 3000;
+
 @Component({
   selector: 'app-sign-in',
-  imports: [Button, FieldError, FormField, FormRoot, Icon, RouterLink],
+  imports: [Button, FieldError, FormField, FormRoot, Icon, NgTemplateOutlet, RouterLink],
   host: { class: 'relative block min-h-dvh overflow-x-clip bg-ink text-fg' },
-  template: `
-    <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div class="absolute -top-44 -left-40 size-155 animate-float rounded-full bg-violet opacity-40 blur-[90px]"></div>
-      <div class="absolute -right-32 bottom-0 size-120 animate-float rounded-full bg-lime opacity-15 blur-[90px] [animation-delay:-6s]"></div>
-    </div>
-
-    <main class="page-container relative grid min-h-dvh content-center gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
-      <div class="flex flex-col gap-6">
-        <a routerLink="/" class="inline-flex min-h-11 items-center gap-2 self-start text-dim no-underline transition-colors hover:text-fg">
-          <app-icon name="arrow-left" class="size-4.5" />
-          Volver al inicio
-        </a>
-        <span class="eyebrow text-[13px] text-lime">Press start</span>
-        <h1 class="m-0 font-display text-[clamp(40px,6vw,80px)] leading-[0.95] font-black tracking-[-0.035em] uppercase">
-          Entra a tu<br /><span class="text-lime">panel.</span>
-        </h1>
-        <p class="m-0 max-w-120 text-[18px] text-muted">
-          Cuentas en soles y dólares, transferencias con tipo de cambio en vivo y un simulador de
-          préstamos que premia tu nivel.
-        </p>
-      </div>
-
-      <section aria-labelledby="form-title" class="glass flex flex-col gap-6 rounded-card p-7 sm:p-9">
-        <div class="flex flex-col gap-2">
-          <h2 id="form-title" class="m-0 font-display text-2xl font-bold">Crea tu perfil de demo</h2>
-          <p class="m-0 text-[15px] text-muted">
-            No pedimos contraseña ni datos reales: elige un gamertag y listo. Todo se guarda solo
-            en este navegador.
-          </p>
-        </div>
-
-        @if (returning(); as tag) {
-          <div class="panel flex flex-wrap items-center justify-between gap-3 rounded-panel px-5 py-4">
-            <p class="m-0 text-[15px]">Ya tienes una sesión como <strong class="text-lime">{{ tag }}</strong></p>
-            <a appButton [routerLink]="target()" size="md">Continuar</a>
-          </div>
-        }
-
-        <form [formRoot]="profile" class="flex flex-col gap-5">
-          <div>
-            <label for="gamertag" class="mb-2 block font-medium">Gamertag</label>
-            <input
-              id="gamertag"
-              type="text"
-              autocomplete="nickname"
-              autocapitalize="off"
-              spellcheck="false"
-              aria-describedby="gamertag-hint gamertag-error"
-              class="panel min-h-13 w-full rounded-panel px-4 font-mono text-lg text-fg outline-none placeholder:text-faint focus-visible:outline-2 focus-visible:outline-lime"
-              placeholder="ej. fufexo_gg"
-              [formField]="profile.gamertag"
-              [attr.aria-invalid]="profile.gamertag().touched() && profile.gamertag().invalid()"
-            />
-            <p id="gamertag-hint" class="m-0 mt-2 text-sm text-subtle">De 3 a 16 caracteres: letras, números, punto o guion bajo.</p>
-            <app-field-error id="gamertag-error" [state]="profile.gamertag()" />
-          </div>
-
-          <button
-            type="submit"
-            class="inline-flex min-h-13 items-center justify-center gap-2.5 rounded-full bg-lime px-7 font-semibold text-ink shadow-glow-lime transition hover:bg-lime-soft"
-          >
-            Entrar al panel
-            <app-icon name="arrow-right" class="size-4.5" [strokeWidth]="2.2" />
-          </button>
-        </form>
-      </section>
-    </main>
-  `,
+  templateUrl: './sign-in.html',
 })
 export class SignIn {
   /** `?volver=` query param: where the guard was sending the visitor. */
   readonly volver = input<string>();
+  /** `?sesion=expirada`: a real account's session could not be renewed. */
+  readonly sesion = input<string>();
 
   private readonly session = inject(Session);
+  private readonly auth = inject(AuthApi);
   private readonly router = inject(Router);
 
+  protected readonly modes = [
+    { id: 'demo', label: 'Probar demo' },
+    { id: 'login', label: 'Ingresar' },
+    { id: 'register', label: 'Crear cuenta' },
+  ] as const;
+  protected readonly mode = linkedSignal<Mode>(() => (this.sesion() === 'expirada' ? 'login' : 'demo'));
+
   /** Read after hydration only, so the prerendered page never depends on browser storage. */
-  protected readonly returning = signal<string | null>(null);
+  protected readonly returning = signal<{ gamertag: string; mode: SessionMode } | null>(null);
   protected readonly target = () => safeReturn(this.volver());
 
-  private readonly model = signal({ gamertag: '' });
+  protected readonly showPassword = signal(false);
+  protected readonly busy = signal(false);
+  protected readonly slow = signal(false);
+  protected readonly formError = signal<string | null>(null);
+
+  private readonly demoModel = signal({ gamertag: '' });
   protected readonly profile = form(
-    this.model,
+    this.demoModel,
     (p) => {
       required(p.gamertag, { message: 'Escribe un gamertag para continuar.' });
       minLength(p.gamertag, 3, { message: 'Usa al menos 3 caracteres.' });
@@ -108,7 +74,7 @@ export class SignIn {
     {
       submission: {
         action: async () => {
-          this.session.signIn(this.model().gamertag);
+          this.session.signIn(this.demoModel().gamertag);
           await this.router.navigateByUrl(this.target());
           return undefined;
         },
@@ -116,7 +82,99 @@ export class SignIn {
     },
   );
 
+  private readonly loginModel = signal({ login: '', password: '' });
+  protected readonly loginForm = form(
+    this.loginModel,
+    (p) => {
+      required(p.login, { message: 'Escribe tu gamertag o tu correo.' });
+      required(p.password, { message: 'Escribe tu contraseña.' });
+    },
+    {
+      submission: {
+        action: (f) =>
+          this.liveSubmit(
+            () => this.auth.login(this.loginModel().login.trim(), this.loginModel().password),
+            // Wrong credentials: shown on the password, without saying which part was wrong.
+            (e) => (e.status === 401 ? [{ kind: 'server', message: e.message, fieldTree: f.password }] : []),
+          ),
+      },
+    },
+  );
+
+  private readonly registerModel = signal({ gamertag: '', email: '', password: '' });
+  protected readonly registerForm = form(
+    this.registerModel,
+    (p) => {
+      required(p.gamertag, { message: 'Elige un gamertag.' });
+      pattern(p.gamertag, /^[A-Za-z0-9_]{3,16}$/, { message: 'Usa de 3 a 16 letras, números o guion bajo.' });
+      required(p.email, { message: 'Escribe tu correo.' });
+      email(p.email, { message: 'Escribe un correo válido, como nombre@correo.com.' });
+      required(p.password, { message: 'Crea una contraseña.' });
+      minLength(p.password, 10, { message: 'Usa al menos 10 caracteres.' });
+      maxLength(p.password, 72, { message: 'Usa como máximo 72 caracteres.' });
+    },
+    {
+      submission: {
+        action: (f) =>
+          this.liveSubmit(
+            () => {
+              const { gamertag, email: address, password } = this.registerModel();
+              return this.auth.register({ gamertag: gamertag.trim(), email: address.trim(), password });
+            },
+            (e) => {
+              const fields = { gamertag: f.gamertag, email: f.email, password: f.password };
+              const mapped = e.fields
+                .filter((x): x is typeof x & { field: keyof typeof fields } => x.field in fields)
+                .map((x) => ({ kind: 'server', message: x.message, fieldTree: fields[x.field] }));
+              // "Gamertag or email already in use" after a race: point at the gamertag.
+              return mapped.length || e.status !== 409
+                ? mapped
+                : [{ kind: 'server', message: e.message, fieldTree: f.gamertag }];
+            },
+          ),
+      },
+    },
+  );
+
   constructor() {
-    afterNextRender(() => this.returning.set(this.session.gamertag()));
+    afterNextRender(() => {
+      const gamertag = this.session.gamertag();
+      const mode = this.session.mode();
+      this.returning.set(gamertag && mode ? { gamertag, mode } : null);
+    });
+  }
+
+  protected setMode(mode: Mode): void {
+    this.mode.set(mode);
+    this.formError.set(null);
+  }
+
+  /**
+   * Runs a sign-in against the API. Errors the API tied to a field are returned to the form
+   * (shown next to that field); anything else, such as the server being unreachable, is shown
+   * above the submit button.
+   */
+  private async liveSubmit(
+    run: () => Promise<unknown>,
+    toFieldErrors: (error: ApiError) => TreeValidationResult,
+  ): Promise<TreeValidationResult> {
+    this.formError.set(null);
+    this.busy.set(true);
+    const timer = setTimeout(() => this.slow.set(true), SLOW_MS);
+    try {
+      await run();
+      await this.router.navigateByUrl(this.target());
+      return undefined;
+    } catch (e) {
+      const error = toApiError(e);
+      const fieldErrors = toFieldErrors(error);
+      if (Array.isArray(fieldErrors) && fieldErrors.length) return fieldErrors;
+      this.formError.set(error.message);
+      return undefined;
+    } finally {
+      clearTimeout(timer);
+      this.busy.set(false);
+      this.slow.set(false);
+    }
   }
 }

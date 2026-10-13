@@ -35,14 +35,19 @@ export class Overview {
   protected readonly missions = inject(MissionsStore);
   protected readonly savings = inject(SavingsStore);
 
-  /** Accounts plus savings goals: money in a goal is still the player's. */
+  /** Accounts plus savings goals: money in a goal is still the player's (goals are demo-only). */
   protected readonly total = computed(() => {
     const accounts = this.bank.netWorthPen();
+    if (this.bank.live()) return accounts;
     const saved = this.savings.totalPen();
     return accounts === null || saved === null ? null : accounts + saved;
   });
 
-  protected readonly shortcuts = computed<
+  /** Real accounts only get shortcuts to what works with their data. */
+  protected readonly shortcuts = computed(() =>
+    this.bank.live() ? this.allShortcuts().filter((s) => s.path === '/app/prestamos') : this.allShortcuts(),
+  );
+  private readonly allShortcuts = computed<
     { path: string; title: string; detail: string; icon: IconName; tone: string; badge?: string }[]
   >(() => [
     {

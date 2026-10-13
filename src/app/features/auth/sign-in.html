@@ -1,0 +1,261 @@
+<div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">
+  <div class="absolute -top-44 -left-40 size-155 animate-float rounded-full bg-violet opacity-40 blur-[90px]"></div>
+  <div class="absolute -right-32 bottom-0 size-120 animate-float rounded-full bg-lime opacity-15 blur-[90px] [animation-delay:-6s]"></div>
+</div>
+
+<main class="page-container relative grid min-h-dvh content-center gap-10 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:items-center">
+  <div class="flex flex-col gap-6">
+    <a routerLink="/" class="inline-flex min-h-11 items-center gap-2 self-start text-dim no-underline transition-colors hover:text-fg">
+      <app-icon name="arrow-left" class="size-4.5" />
+      Volver al inicio
+    </a>
+    <span class="eyebrow text-[13px] text-lime">Press start</span>
+    <h1 class="m-0 font-display text-[clamp(40px,6vw,80px)] leading-[0.95] font-black tracking-[-0.035em] uppercase">
+      Entra a tu<br /><span class="text-lime">panel.</span>
+    </h1>
+    <p class="m-0 max-w-120 text-[18px] text-muted">
+      Cuentas en soles y dólares, transferencias con tipo de cambio en vivo y un simulador de
+      préstamos que premia tu nivel.
+    </p>
+  </div>
+
+  <section aria-labelledby="form-title" class="glass flex flex-col gap-6 rounded-card p-7 sm:p-9">
+    @if (sesion() === 'expirada') {
+      <p role="status" class="m-0 flex items-start gap-2 rounded-panel border border-ember/40 bg-ember/10 p-4 text-sm">
+        <app-icon name="alert" class="mt-0.5 size-4.5 text-ember" />
+        Tu sesión expiró. Vuelve a ingresar para seguir donde estabas.
+      </p>
+    }
+
+    @if (returning(); as r) {
+      <div class="panel flex flex-wrap items-center justify-between gap-3 rounded-panel px-5 py-4">
+        <p class="m-0 text-[15px]">
+          Ya tienes una sesión {{ r.mode === 'live' ? 'con tu cuenta' : 'de demo' }} como
+          <strong class="text-lime">{{ r.gamertag }}</strong>
+        </p>
+        <a appButton [routerLink]="target()" size="md">Continuar</a>
+      </div>
+    }
+
+    <fieldset class="m-0 border-0 p-0">
+      <legend class="sr-only">Cómo quieres entrar</legend>
+      <div class="panel grid grid-cols-3 gap-1 rounded-full p-1">
+        @for (m of modes; track m.id) {
+          <label
+            class="flex min-h-11 cursor-pointer items-center justify-center rounded-full px-2 text-center text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lime"
+            [class]="mode() === m.id ? 'bg-lime font-semibold text-ink' : 'text-dim hover:text-fg'"
+          >
+            <input type="radio" name="mode" class="sr-only" [value]="m.id" [checked]="mode() === m.id" (change)="setMode(m.id)" />
+            {{ m.label }}
+          </label>
+        }
+      </div>
+    </fieldset>
+
+    @switch (mode()) {
+      @case ('demo') {
+        <div class="flex flex-col gap-2">
+          <h2 id="form-title" class="m-0 font-display text-2xl font-bold">Prueba la demo</h2>
+          <p class="m-0 text-[15px] text-muted">
+            Sin contraseña ni datos reales: elige un gamertag y entra con datos de ejemplo. Todo se
+            guarda solo en este navegador.
+          </p>
+        </div>
+
+        <form [formRoot]="profile" class="flex flex-col gap-5">
+          <div>
+            <label for="gamertag" class="mb-2 block font-medium">Gamertag</label>
+            <input
+              id="gamertag"
+              type="text"
+              autocomplete="nickname"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="gamertag-hint gamertag-error"
+              class="panel min-h-13 w-full rounded-panel px-4 font-mono text-lg text-fg outline-none placeholder:text-faint focus-visible:outline-2 focus-visible:outline-lime"
+              placeholder="ej. fufexo_gg"
+              [formField]="profile.gamertag"
+              [attr.aria-invalid]="profile.gamertag().touched() && profile.gamertag().invalid()"
+            />
+            <p id="gamertag-hint" class="m-0 mt-2 text-sm text-subtle">De 3 a 16 caracteres: letras, números, punto o guion bajo.</p>
+            <app-field-error id="gamertag-error" [state]="profile.gamertag()" />
+          </div>
+
+          <button
+            type="submit"
+            class="inline-flex min-h-13 items-center justify-center gap-2.5 rounded-full bg-lime px-7 font-semibold text-ink shadow-glow-lime transition hover:bg-lime-soft"
+          >
+            Entrar al panel
+            <app-icon name="arrow-right" class="size-4.5" [strokeWidth]="2.2" />
+          </button>
+        </form>
+      }
+
+      @case ('login') {
+        <div class="flex flex-col gap-2">
+          <h2 id="form-title" class="m-0 font-display text-2xl font-bold">Ingresa a tu cuenta</h2>
+          <p class="m-0 text-[15px] text-muted">Tus saldos y movimientos se guardan en el servidor de LVL.</p>
+        </div>
+
+        <form [formRoot]="loginForm" class="flex flex-col gap-5" [attr.aria-busy]="busy()">
+          <div>
+            <label for="login" class="mb-2 block font-medium">Gamertag o correo</label>
+            <input
+              id="login"
+              type="text"
+              autocomplete="username"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="login-error"
+              class="field"
+              [formField]="loginForm.login"
+              [attr.aria-invalid]="loginForm.login().touched() && loginForm.login().invalid()"
+            />
+            <app-field-error id="login-error" [state]="loginForm.login()" />
+          </div>
+
+          <div>
+            <label for="login-password" class="mb-2 block font-medium">Contraseña</label>
+            <div class="relative">
+              <input
+                id="login-password"
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="current-password"
+                aria-describedby="login-password-error"
+                class="field pr-14"
+                [formField]="loginForm.password"
+                [attr.aria-invalid]="loginForm.password().touched() && loginForm.password().invalid()"
+              />
+              <ng-container *ngTemplateOutlet="toggle" />
+            </div>
+            <app-field-error id="login-password-error" [state]="loginForm.password()" />
+          </div>
+
+          <ng-container *ngTemplateOutlet="status" />
+
+          <button type="submit" appButton size="lg" [disabled]="busy()">
+            @if (busy()) {
+              <span aria-hidden="true" class="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink"></span>
+              Ingresando…
+            } @else {
+              Ingresar
+              <app-icon name="arrow-right" class="size-4.5" [strokeWidth]="2.2" />
+            }
+          </button>
+          <p class="m-0 text-center text-sm text-muted">
+            ¿No tienes cuenta?
+            <button type="button" class="min-h-11 cursor-pointer font-medium text-lime underline underline-offset-2" (click)="setMode('register')">
+              Créala en un minuto
+            </button>
+          </p>
+        </form>
+      }
+
+      @case ('register') {
+        <div class="flex flex-col gap-2">
+          <h2 id="form-title" class="m-0 font-display text-2xl font-bold">Crea tu cuenta</h2>
+          <p class="m-0 text-[15px] text-muted">
+            Abrimos tus cuentas en soles y dólares con un bono de bienvenida de práctica. Es un proyecto
+            de demostración: no uses una contraseña que tengas en otro sitio.
+          </p>
+        </div>
+
+        <form [formRoot]="registerForm" class="flex flex-col gap-5" [attr.aria-busy]="busy()">
+          <div>
+            <label for="register-gamertag" class="mb-2 block font-medium">Gamertag</label>
+            <input
+              id="register-gamertag"
+              type="text"
+              autocomplete="username"
+              autocapitalize="off"
+              spellcheck="false"
+              aria-describedby="register-gamertag-hint register-gamertag-error"
+              class="field font-mono"
+              [formField]="registerForm.gamertag"
+              [attr.aria-invalid]="registerForm.gamertag().touched() && registerForm.gamertag().invalid()"
+            />
+            <p id="register-gamertag-hint" class="m-0 mt-2 text-sm text-subtle">De 3 a 16 letras, números o guion bajo. Así te encuentran para enviarte dinero.</p>
+            <app-field-error id="register-gamertag-error" [state]="registerForm.gamertag()" />
+          </div>
+
+          <div>
+            <label for="register-email" class="mb-2 block font-medium">Correo</label>
+            <input
+              id="register-email"
+              type="email"
+              autocomplete="email"
+              spellcheck="false"
+              aria-describedby="register-email-error"
+              class="field"
+              [formField]="registerForm.email"
+              [attr.aria-invalid]="registerForm.email().touched() && registerForm.email().invalid()"
+            />
+            <app-field-error id="register-email-error" [state]="registerForm.email()" />
+          </div>
+
+          <div>
+            <label for="register-password" class="mb-2 block font-medium">Contraseña</label>
+            <div class="relative">
+              <input
+                id="register-password"
+                [type]="showPassword() ? 'text' : 'password'"
+                autocomplete="new-password"
+                aria-describedby="register-password-hint register-password-error"
+                class="field pr-14"
+                [formField]="registerForm.password"
+                [attr.aria-invalid]="registerForm.password().touched() && registerForm.password().invalid()"
+              />
+              <ng-container *ngTemplateOutlet="toggle" />
+            </div>
+            <p id="register-password-hint" class="m-0 mt-2 text-sm text-subtle">Mínimo 10 caracteres. Puedes pegarla desde tu gestor de contraseñas.</p>
+            <app-field-error id="register-password-error" [state]="registerForm.password()" />
+          </div>
+
+          <ng-container *ngTemplateOutlet="status" />
+
+          <button type="submit" appButton size="lg" [disabled]="busy()">
+            @if (busy()) {
+              <span aria-hidden="true" class="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink"></span>
+              Creando tu cuenta…
+            } @else {
+              Crear cuenta
+              <app-icon name="arrow-right" class="size-4.5" [strokeWidth]="2.2" />
+            }
+          </button>
+        </form>
+      }
+    }
+  </section>
+</main>
+
+<!-- Show/hide password: a real button with its state, so it works with keyboard and screen readers. -->
+<ng-template #toggle>
+  <button
+    type="button"
+    class="absolute inset-y-0 right-1 my-auto grid size-11 cursor-pointer place-items-center rounded-full text-dim transition-colors hover:text-fg"
+    [attr.aria-pressed]="showPassword()"
+    (click)="showPassword.set(!showPassword())"
+  >
+    <app-icon [name]="showPassword() ? 'eye-off' : 'eye'" class="size-5" />
+    <span class="sr-only">Mostrar contraseña</span>
+  </button>
+</ng-template>
+
+<!-- Waiting on the free server, or an error not tied to a field. -->
+<ng-template #status>
+  <div aria-live="polite">
+    @if (slow()) {
+      <p class="m-0 flex items-start gap-2 rounded-panel border border-violet/40 bg-violet/10 p-4 text-sm">
+        <app-icon name="cloud" class="mt-0.5 size-4.5 text-lilac" />
+        Estamos despertando el servidor: usa un plan gratuito que se duerme cuando nadie lo usa. La primera vez
+        puede tardar hasta un minuto.
+      </p>
+    }
+  </div>
+  @if (formError(); as message) {
+    <p role="alert" class="m-0 flex items-start gap-2 rounded-panel border border-ember/40 bg-ember/10 p-4 text-sm">
+      <app-icon name="alert" class="mt-0.5 size-4.5 text-ember" />
+      {{ message }}
+    </p>
+  }
+</ng-template>

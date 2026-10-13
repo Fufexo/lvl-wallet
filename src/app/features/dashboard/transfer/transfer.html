@@ -44,7 +44,7 @@
       <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
         <legend class="mb-2 p-0 font-medium">Para</legend>
         <div class="panel grid grid-cols-2 gap-1 rounded-full p-1">
-          @for (k of kinds; track k.id) {
+          @for (k of kinds(); track k.id) {
             <label
               class="flex min-h-11 cursor-pointer items-center justify-center rounded-full text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lime"
               [class]="model().toKind === k.id ? 'bg-lime font-semibold text-ink' : 'text-dim hover:text-fg'"
@@ -58,7 +58,7 @@
         @if (model().toKind === 'account') {
           <label for="to" class="sr-only">Cuenta de destino</label>
           <app-select inputId="to" label="Cuenta de destino" [options]="destinationOptions()" [formField]="transfer.to" placeholder="Elige una cuenta" describedBy="to-error" />
-        } @else {
+        } @else if (model().toKind === 'contact') {
           <div id="to" tabindex="-1" role="radiogroup" aria-label="Integrante de tu squad" aria-describedby="to-error" class="grid gap-2 outline-none sm:grid-cols-3">
             @for (c of bank.contacts; track c.id) {
               <label
@@ -73,6 +73,24 @@
               </label>
             }
           </div>
+        } @else {
+          <label for="to" class="sr-only">Gamertag de quien recibe</label>
+          <div class="field flex items-center gap-1 font-mono focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lime">
+            <span aria-hidden="true" class="text-subtle">@</span>
+            <input
+              id="to"
+              type="text"
+              autocomplete="off"
+              autocapitalize="off"
+              spellcheck="false"
+              placeholder="gamertag"
+              aria-describedby="to-hint to-error"
+              class="w-full min-w-0 bg-transparent text-fg outline-none placeholder:text-faint"
+              [formField]="transfer.to"
+              [attr.aria-invalid]="transfer.to().touched() && transfer.to().invalid()"
+            />
+          </div>
+          <p id="to-hint" class="m-0 text-sm text-subtle">Recibe en su cuenta de la misma moneda que la tuya de origen.</p>
         }
         <app-field-error id="to-error" [state]="transfer.to()" />
       </fieldset>

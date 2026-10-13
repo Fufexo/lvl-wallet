@@ -1,5 +1,5 @@
 import { ApplicationConfig, provideBrowserGlobalErrorListeners } from '@angular/core';
-import { provideHttpClient, withFetch } from '@angular/common/http';
+import { provideHttpClient, withFetch, withInterceptors } from '@angular/common/http';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
 import {
   provideRouter,
@@ -9,6 +9,7 @@ import {
 } from '@angular/router';
 
 import { routes } from './app.routes';
+import { authInterceptor } from './core/api/auth-interceptor';
 import { prefersReducedMotion } from './core/motion/gsap';
 import { PreloadFlagged } from './core/preload';
 
@@ -28,7 +29,7 @@ export const appConfig: ApplicationConfig = {
       }),
       withPreloading(PreloadFlagged),
     ),
-    provideHttpClient(withFetch()),
+    provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
     provideClientHydration(withEventReplay()),
   ],
 };

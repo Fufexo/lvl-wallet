@@ -31,7 +31,7 @@
       </p>
       <p class="m-0 text-[13px] text-subtle" aria-live="polite">
         @if (bank.usdToPen(); as rate) {
-          Incluye tus cofres. Dólares valorizados a S/ {{ rate | number: '1.3-3' }} por US$ 1, tipo de cambio en vivo.
+          {{ bank.live() ? '' : 'Incluye tus cofres. ' }}Dólares valorizados a S/ {{ rate | number: '1.3-3' }} por US$ 1, tipo de cambio en vivo.
         } @else {
           Cargando el tipo de cambio para valorizar tus dólares…
         }
@@ -112,33 +112,35 @@
     </ul>
   </section>
 
-  <!-- Games limit -->
-  <section aria-labelledby="limit-title" class="glass flex flex-col gap-4 rounded-card p-7">
-    <h2 id="limit-title" class="m-0 eyebrow text-xs font-normal text-lime">Límite inteligente</h2>
-    <p class="m-0 font-display text-xl leading-tight font-bold">Gasto en juegos este mes</p>
-    <div class="flex flex-col gap-2">
-      <p class="m-0 flex justify-between text-sm">
-        <span class="font-mono">{{ bank.gamesSpentThisMonth() | money: 'PEN' }}</span>
-        <span class="text-subtle">de {{ bank.gamesMonthlyLimit | money: 'PEN' }}</span>
+  <!-- Games limit (demo: purchases are not on the API yet) -->
+  @if (!bank.live()) {
+    <section aria-labelledby="limit-title" class="glass flex flex-col gap-4 rounded-card p-7">
+      <h2 id="limit-title" class="m-0 eyebrow text-xs font-normal text-lime">Límite inteligente</h2>
+      <p class="m-0 font-display text-xl leading-tight font-bold">Gasto en juegos este mes</p>
+      <div class="flex flex-col gap-2">
+        <p class="m-0 flex justify-between text-sm">
+          <span class="font-mono">{{ bank.gamesSpentThisMonth() | money: 'PEN' }}</span>
+          <span class="text-subtle">de {{ bank.gamesMonthlyLimit | money: 'PEN' }}</span>
+        </p>
+        <app-progress-bar
+          class="h-3"
+          label="Gasto en juegos del límite mensual"
+          [fillClass]="limitUsed() >= 0.8 ? 'bg-ember' : 'bg-lime'"
+          [value]="bank.gamesSpentThisMonth()"
+          [max]="bank.gamesMonthlyLimit"
+        />
+      </div>
+      <p class="m-0 text-sm text-muted">
+        @if (limitUsed() >= 1) {
+          Llegaste a tu tope. Las compras de juegos quedan en pausa hasta el próximo mes.
+        } @else if (limitUsed() >= 0.8) {
+          Estás cerca de tu tope: te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
+        } @else {
+          Te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
+        }
       </p>
-      <app-progress-bar
-        class="h-3"
-        label="Gasto en juegos del límite mensual"
-        [fillClass]="limitUsed() >= 0.8 ? 'bg-ember' : 'bg-lime'"
-        [value]="bank.gamesSpentThisMonth()"
-        [max]="bank.gamesMonthlyLimit"
-      />
-    </div>
-    <p class="m-0 text-sm text-muted">
-      @if (limitUsed() >= 1) {
-        Llegaste a tu tope. Las compras de juegos quedan en pausa hasta el próximo mes.
-      } @else if (limitUsed() >= 0.8) {
-        Estás cerca de tu tope: te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
-      } @else {
-        Te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
-      }
-    </p>
-  </section>
+    </section>
+  }
 
   <!-- Shortcuts to the other features -->
   @for (s of shortcuts(); track s.path) {

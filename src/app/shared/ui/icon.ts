@@ -35,7 +35,10 @@ export type IconName =
   | 'target'
   | 'tag'
   | 'flag'
-  | 'lock-open';
+  | 'lock-open'
+  | 'eye'
+  | 'eye-off'
+  | 'cloud';
 
 /**
  * Decorative stroke icon on a 24×24 grid. Size and color come from the host classes,
@@ -104,6 +107,12 @@ export type IconName =
         @case ('tag') { <path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /> }
         @case ('flag') { <path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /> }
         @case ('lock-open') { <rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 7.5-2" /> }
+        @case ('eye') { <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /> }
+        @case ('eye-off') {
+          <path d="M10.6 5.1A10 10 0 0 1 12 5c6.5 0 10 7 10 7a17 17 0 0 1-2.2 3.2M6.6 6.6A17 17 0 0 0 2 12s3.5 7 10 7a9.7 9.7 0 0 0 5.4-1.6" />
+          <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2M3 3l18 18" />
+        }
+        @case ('cloud') { <path d="M7 18a5 5 0 0 1-.5-10A6 6 0 0 1 18 9a4.5 4.5 0 0 1-.5 9z" /> }
         @case ('card') { <rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /> }
         @case ('users') {
           <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" />

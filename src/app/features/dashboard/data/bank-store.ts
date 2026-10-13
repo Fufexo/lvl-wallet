@@ -1,10 +1,13 @@
-import { Service, computed, effect, inject, signal } from '@angular/core';
+import { Service, computed, effect, inject, signal, untracked } from '@angular/core';
 
+import { ApiError } from '../../../core/api/api-error';
 import { NOW } from '../../../core/clock';
 import { ExchangeRate } from '../../../core/exchange-rate';
 import { LocalStore } from '../../../core/local-store';
+import { Session } from '../../../core/session';
 import { formatMoney } from '../../../shared/ui/money';
 import { SelectOption } from '../../../shared/ui/select';
+import { LiveBank } from './live-bank';
 import { Account, Contact, Currency, Transaction } from './models';
 import { progressFor } from './progression';
 import { CONTACTS, GAMES_MONTHLY_LIMIT, PREVIOUS_XP, SEED_ACCOUNTS, seedTransactions } from './seed';
@@ -18,7 +21,9 @@ interface BankState {
 
 export type Destination =
   | { readonly kind: 'account'; readonly id: string }
-  | { readonly kind: 'contact'; readonly id: string };
+  | { readonly kind: 'contact'; readonly id: string }
+  /** Another LVL player, by gamertag (real accounts only). */
+  | { readonly kind: 'player'; readonly gamertag: string };
 
 export interface TransferRequest {
   readonly fromId: string;
@@ -45,6 +50,11 @@ export interface TransferReceipt extends TransferQuote {
 /** A business rule rejected the operation; the message is shown to the player as is. */
 export class BankError extends Error {}
 
+/** Loading state of the real account's data; demo data is always `ready`. */
+export type LiveStatus = 'idle' | 'loading' | 'ready' | 'error';
+
+const EMPTY: BankState = { accounts: [], transactions: [] };
+
 /** A movement about to be recorded: id and date are assigned by the store. */
 export type NewMovement = Omit<Transaction, 'id' | 'date'>;
 
@@ -57,13 +67,27 @@ export function simulateLatency(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
 }
 
+/**
+ * Accounts and movements of the panel, in either mode:
+ * - demo: kept in this browser, every rule applied here;
+ * - live: loaded from the LVL API, which applies the rules; transfers go to the server.
+ */
 @Service()
 export class BankStore {
   private readonly storage = inject(LocalStore);
   private readonly now = inject(NOW);
   private readonly fx = inject(ExchangeRate);
+  private readonly session = inject(Session);
+  private readonly api = inject(LiveBank);
 
-  private readonly state = signal<BankState>(this.restore());
+  readonly live = this.session.isLive;
+  private readonly demoState = signal<BankState>(this.restore());
+  private readonly liveState = signal<BankState>(EMPTY);
+  private readonly state = computed(() => (this.live() ? this.liveState() : this.demoState()));
+
+  private readonly liveStatus = signal<LiveStatus>('idle');
+  readonly status = computed<LiveStatus>(() => (this.live() ? this.liveStatus() : 'ready'));
+  readonly loadError = signal<string | null>(null);
 
   readonly accounts = computed(() => this.state().accounts);
   readonly contacts: readonly Contact[] = CONTACTS;
@@ -82,8 +106,9 @@ export class BankStore {
       .map(({ t }) => t),
   );
 
+  /** Demo players start with some history; real accounts start from zero. */
   readonly totalXp = computed(
-    () => PREVIOUS_XP + this.state().transactions.reduce((sum, t) => sum + t.xp, 0),
+    () => (this.live() ? 0 : PREVIOUS_XP) + this.state().transactions.reduce((sum, t) => sum + t.xp, 0),
   );
   readonly progress = computed(() => progressFor(this.totalXp()));
 
@@ -110,7 +135,43 @@ export class BankStore {
   readonly gamesMonthlyLimit = GAMES_MONTHLY_LIMIT;
 
   constructor() {
-    effect(() => this.storage.set(KEY, this.state()));
+    effect(() => this.storage.set(KEY, this.demoState()));
+    // Leaving the real account (sign out, session expired) drops its data from memory.
+    effect(() => {
+      if (!this.live()) {
+        untracked(() => {
+          this.liveState.set(EMPTY);
+          this.liveStatus.set('idle');
+        });
+      }
+    });
+  }
+
+  /** Loads the real account's data once; does nothing in demo mode. */
+  ensureLoaded(): void {
+    if (this.live() && this.liveStatus() === 'idle') void this.reload();
+  }
+
+  /**
+   * Fetches the latest data. The first load shows a loading state; later refreshes (after a
+   * transfer) update in place, so the page on screen is never unmounted, and if one fails the
+   * last data stays visible.
+   */
+  async reload(): Promise<void> {
+    if (!this.live()) return;
+    const firstLoad = this.liveStatus() !== 'ready';
+    if (firstLoad) {
+      this.liveStatus.set('loading');
+      this.loadError.set(null);
+    }
+    try {
+      this.liveState.set(await this.api.load());
+      this.liveStatus.set('ready');
+    } catch (error) {
+      if (!firstLoad) return;
+      this.loadError.set(error instanceof ApiError ? error.message : 'No pudimos cargar tus cuentas.');
+      this.liveStatus.set('error');
+    }
   }
 
   account(id: string): Account | undefined {
@@ -132,7 +193,9 @@ export class BankStore {
     return { debit: amount, debitCurrency: from.currency, credit: round2(credit), creditCurrency, rate };
   }
 
-  async transfer(request: TransferRequest): Promise<TransferReceipt> {
+  /** `idempotencyKey` identifies this attempt in live mode: retrying it never pays twice. */
+  async transfer(request: TransferRequest, idempotencyKey: string = crypto.randomUUID()): Promise<TransferReceipt> {
+    if (this.live()) return this.transferLive(request, idempotencyKey);
     await simulateLatency();
 
     const from = this.account(request.fromId);
@@ -174,15 +237,47 @@ export class BankStore {
     return { ...quote, id: out.id, date: out.date, toLabel };
   }
 
+  private async transferLive(request: TransferRequest, idempotencyKey: string): Promise<TransferReceipt> {
+    const { to } = request;
+    const note = request.note.trim();
+    try {
+      const t = await this.api.transfer(
+        {
+          sourceAccountId: request.fromId,
+          targetAccountId: to.kind === 'account' ? to.id : undefined,
+          recipientGamertag: to.kind === 'player' ? to.gamertag : undefined,
+          amount: round2(request.amount),
+          note: note || undefined,
+        },
+        idempotencyKey,
+      );
+      await this.reload();
+      return {
+        id: t.id,
+        date: t.createdAt,
+        toLabel: this.destinationLabel(to),
+        debit: t.sourceAmount,
+        debitCurrency: t.sourceCurrency,
+        credit: t.targetAmount,
+        creditCurrency: t.targetCurrency,
+        rate: t.fxRate ?? null,
+      };
+    } catch (error) {
+      throw new BankError(error instanceof ApiError ? error.message : 'No pudimos completar la transferencia.');
+    }
+  }
+
   /**
    * Records movements and applies them to the account balances in one update.
    * Business rules (funds, limits) are the caller's job; see `assertFunds`.
+   * Demo only: in live mode the server records movements.
    */
   record(movements: readonly NewMovement[]): Transaction[] {
+    if (this.live()) throw new BankError('Esta función está disponible solo en la demo por ahora.');
     const date = this.now().toISOString();
     const id = `tx-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const recorded = movements.map((m, i) => ({ ...m, id: `${id}-${i}`, date }));
-    this.state.update((s) => ({
+    this.demoState.update((s) => ({
       transactions: [...s.transactions, ...recorded],
       accounts: s.accounts.map((a) => {
         const delta = recorded.filter((m) => m.accountId === a.id).reduce((sum, m) => sum + m.amount, 0);
@@ -208,11 +303,12 @@ export class BankStore {
 
   /** Restores the demo data. */
   reset(): void {
-    this.state.set(this.seed());
+    this.demoState.set(this.seed());
   }
 
   destinationLabel(to: Destination): string {
     if (to.kind === 'account') return this.account(to.id)?.name.toLowerCase() ?? 'cuenta';
+    if (to.kind === 'player') return `@${to.gamertag}`;
     return this.contacts.find((c) => c.id === to.id)?.handle ?? 'contacto';
   }
 

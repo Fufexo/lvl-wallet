@@ -48,10 +48,12 @@ export class Transfer {
   private readonly summaryBox = viewChild<ElementRef<HTMLElement>>('summaryBox');
 
   protected readonly steps = STEPS;
-  protected readonly kinds = [
-    { id: 'account', label: 'Mis cuentas' },
-    { id: 'contact', label: 'Mi squad' },
-  ] as const;
+  /** Demo players pay their sample squad; real accounts pay any player by gamertag. */
+  protected readonly kinds = computed(() =>
+    this.bank.live()
+      ? ([{ id: 'account', label: 'Mis cuentas' }, { id: 'player', label: 'Otro jugador' }] as const)
+      : ([{ id: 'account', label: 'Mis cuentas' }, { id: 'contact', label: 'Mi squad' }] as const),
+  );
   protected readonly toneClass = { violet: 'bg-violet', lime: 'bg-lime', ember: 'bg-ember' } as const;
 
 
@@ -61,12 +63,19 @@ export class Transfer {
   protected readonly pending = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly receipt = signal<TransferReceipt | null>(null);
+  /** One key per confirmed attempt: retrying after an error can never pay twice. */
+  private attemptKey = '';
 
   protected readonly model = signal<TransferModel>(this.blank());
   protected readonly transfer = form(
     this.model,
     (p) => {
       required(p.to, { message: 'Elige a quién le envías.' });
+      validate(p.to, ({ value, valueOf }) =>
+        valueOf(p.toKind) === 'player' && value() && !/^[A-Za-z0-9_]{3,16}$/.test(value().trim())
+          ? { kind: 'gamertag', message: 'Escribe el gamertag exacto: de 3 a 16 letras, números o guion bajo.' }
+          : undefined,
+      );
       validate(p.to, ({ value, valueOf }) =>
         valueOf(p.toKind) === 'account' && value() === valueOf(p.from)
           ? { kind: 'same-account', message: 'Elige una cuenta distinta a la de origen.' }
@@ -92,6 +101,7 @@ export class Transfer {
       submission: {
         action: async () => {
           this.showSummary.set(false);
+          this.attemptKey = crypto.randomUUID();
           this.goTo('confirm');
           return undefined;
         },
@@ -110,12 +120,16 @@ export class Transfer {
 
   protected readonly fromAccount = computed(() => this.bank.account(this.model().from));
   protected readonly fromSymbol = computed(() => (this.fromAccount()?.currency === 'USD' ? 'US$' : 'S/'));
-  private readonly destination = computed<Destination>(() => ({ kind: this.model().toKind, id: this.model().to }));
+  private readonly destination = computed<Destination>(() => {
+    const { toKind, to } = this.model();
+    return toKind === 'player' ? { kind: 'player', gamertag: to.trim() } : { kind: toKind, id: to };
+  });
   /** Destination as a standalone title: "Cuenta en dólares" or "Valeria · @vale.gg". */
   protected readonly toTitle = computed(() => {
-    const { kind, id } = this.destination();
-    if (kind === 'account') return this.bank.account(id)?.name ?? '';
-    const contact = this.bank.contacts.find((c) => c.id === id);
+    const to = this.destination();
+    if (to.kind === 'account') return this.bank.account(to.id)?.name ?? '';
+    if (to.kind === 'player') return `@${to.gamertag}`;
+    const contact = this.bank.contacts.find((c) => c.id === to.id);
     return contact ? `${contact.name} · ${contact.handle}` : '';
   });
 
@@ -168,7 +182,9 @@ export class Transfer {
     this.pending.set(true);
     this.error.set(null);
     try {
-      this.receipt.set(await this.bank.transfer({ fromId: from, to: this.destination(), amount, note }));
+      this.receipt.set(
+        await this.bank.transfer({ fromId: from, to: this.destination(), amount, note }, this.attemptKey),
+      );
       this.goTo('done');
     } catch (e) {
       this.error.set(e instanceof BankError ? e.message : 'No pudimos completar la transferencia. Intenta de nuevo.');
@@ -193,7 +209,9 @@ export class Transfer {
     return this.bank.accounts().find((a) => a.id !== fromId)?.id ?? '';
   }
 
+  /** From soles to dollars by default (demo ids or the real account's ids). */
   private blank(): TransferModel {
-    return { from: 'pen', toKind: 'account', to: 'usd', amount: null, note: '' };
+    const idOf = (currency: string) => this.bank.accounts().find((a) => a.currency === currency)?.id ?? '';
+    return { from: idOf('PEN'), toKind: 'account', to: idOf('USD'), amount: null, note: '' };
   }
 }

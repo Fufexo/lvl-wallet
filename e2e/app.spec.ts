@@ -212,3 +212,74 @@ test.describe('signed in', () => {
     );
   });
 });
+
+test.describe('real account (API mocked)', () => {
+  const PEN = '0199d5a0-0000-7000-8000-00000000a1b2';
+  const USD = '0199d5a0-0000-7000-8000-00000000c3d4';
+
+  /** A tiny fake of the LVL API: sign-up, accounts, movements and one transfer. */
+  async function mockApi(page: Page): Promise<{ idempotencyKeys: string[] }> {
+    const state = { pen: 500, movements: [] as object[], idempotencyKeys: [] as string[] };
+    const welcome = { id: 'm0', transferId: 't0', kind: 'WELCOME', description: 'Bono de bienvenida', amount: 500, currency: 'PEN', balanceAfter: 500, createdAt: '2026-10-13T20:00:00Z' };
+    await page.route('**/api/auth/register', (route) =>
+      route.fulfill({ status: 201, json: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, user: { id: 'u1', gamertag: 'ana_gg', email: 'ana@lvl.test' } } }),
+    );
+    await page.route('**/api/accounts', (route) =>
+      route.fulfill({ json: [{ id: PEN, currency: 'PEN', balance: state.pen }, { id: USD, currency: 'USD', balance: 50 }] }),
+    );
+    await page.route('**/api/accounts/*/movements**', (route) =>
+      route.fulfill({ json: { items: route.request().url().includes(PEN) ? [...state.movements, welcome] : [] } }),
+    );
+    await page.route('**/api/transfers', (route) => {
+      state.idempotencyKeys.push(route.request().headers()['idempotency-key']);
+      state.pen -= 40;
+      state.movements.unshift({ ...welcome, id: 'm1', kind: 'P2P', description: 'Envío a @beto · pizza', amount: -40, balanceAfter: state.pen, createdAt: '2026-10-13T21:00:00Z' });
+      return route.fulfill({ status: 201, json: { id: 'tr1', sourceAmount: 40, sourceCurrency: 'PEN', targetAmount: 40, targetCurrency: 'PEN', createdAt: '2026-10-13T21:00:00Z' } });
+    });
+    return state;
+  }
+
+  test('sign up, see server balances and pay another player by gamertag', async ({ page }) => {
+    const api = await mockApi(page);
+    await page.goto('/ingresar');
+    await page.locator('label', { hasText: 'Crear cuenta' }).click();
+    await page.getByLabel('Gamertag').fill('ana_gg');
+    await page.getByLabel('Correo').fill('ana@lvl.test');
+    await page.getByLabel('Contraseña', { exact: true }).fill('contraseña-segura');
+    await page.getByRole('button', { name: 'Crear cuenta' }).click();
+
+    await expect(page).toHaveURL(/\/app$/);
+    await expect(page.getByText('S/ 500.00').first()).toBeVisible();
+    await expect(page.getByText('Cuenta real').first()).toBeVisible();
+    await expectNoA11yViolations(page);
+
+    await page.goto('/app/transferir');
+    await page.locator('label', { hasText: 'Otro jugador' }).click();
+    await page.getByLabel('Gamertag de quien recibe').fill('beto');
+    await page.getByLabel('Monto').fill('40');
+    await page.getByLabel('Mensaje').fill('pizza');
+    await page.getByRole('button', { name: 'Revisar transferencia' }).click();
+    await page.getByRole('button', { name: 'Confirmar y enviar' }).click();
+
+    await expect(page.getByRole('heading', { name: '¡Transferencia enviada!' })).toBeVisible();
+    await expect(page.getByText('Tu nuevo saldo es S/ 460.00.')).toBeVisible();
+    expect(api.idempotencyKeys).toHaveLength(1);
+    expect(api.idempotencyKeys[0]).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('sections not on the API yet explain themselves and open the demo', async ({ page }) => {
+    await mockApi(page);
+    await page.route('**/api/auth/logout', (route) => route.fulfill({ status: 204 }));
+    await page.addInitScript(() => localStorage.setItem('lvl.session.v1', JSON.stringify({ mode: 'live', gamertag: 'ana_gg' })));
+    await page.route('**/api/auth/refresh', (route) =>
+      route.fulfill({ json: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, user: { id: 'u1', gamertag: 'ana_gg', email: 'ana@lvl.test' } } }),
+    );
+
+    await page.goto('/app/tarjetas');
+    await expect(page.getByText('Esta sección todavía funciona solo en el modo demo.')).toBeVisible();
+    await expectNoA11yViolations(page);
+
+    await page.getByRole('button', { name: 'Probar en la demo' }).click();
+    await expect(page.getByRole('heading', { level: 1, name: 'Tarjetas virtuales' })).toBeVisible();
+  });
+});

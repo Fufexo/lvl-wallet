@@ -4,7 +4,10 @@
 
 Billetera digital ficticia para gamers en Perú: una landing animada y un panel bancario de demo con cuentas en soles y dólares, transferencias con tipo de cambio en vivo, tarjetas virtuales, ofertas que se desbloquean por nivel, misiones semanales, cofres de ahorro y un simulador de préstamos que premia tu nivel.
 
-**Demo en vivo → [lvl-wallet.vercel.app](https://lvl-wallet.vercel.app)** · Para el panel, entra en [/ingresar](https://lvl-wallet.vercel.app/ingresar) con cualquier gamertag (no hay contraseñas ni datos reales).
+**Demo en vivo → [lvl-wallet.vercel.app](https://lvl-wallet.vercel.app)** · En [/ingresar](https://lvl-wallet.vercel.app/ingresar) eliges cómo entrar al panel:
+
+- **Probar demo:** cualquier gamertag, sin contraseña; los datos de ejemplo viven en tu navegador.
+- **Cuenta real:** registro e ingreso contra la [API de LVL](https://github.com/Fufexo/lvl-api) (Spring Boot); tus saldos, movimientos y transferencias se guardan en el servidor.
 
 ![Landing de LVL en escritorio](docs/landing-desktop.png)
 
@@ -45,6 +48,10 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ![Simulador de préstamos con cuota mensual y gráfico de capital e interés](docs/dashboard-loans.png)
 
+### Dos modos: demo y cuenta real
+
+Con una cuenta real, el resumen, los movimientos y las transferencias vienen de la API: saldos en un libro contable de partida doble, transferencias a otros jugadores por gamertag y reintentos idempotentes. Tarjetas, botín, misiones, cofres y squad siguen en modo demo mientras se migran; en una cuenta real explican eso y ofrecen abrir la demo.
+
 ## Stack
 
 | | |
@@ -55,12 +62,16 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 | Estilos | Tailwind CSS v4 con tokens de diseño en `@theme` |
 | Animación | CSS para la intro del hero; GSAP 3 (ScrollTrigger) + Lenis para el resto |
 | Tests | Vitest (unitarios), Playwright + axe-core (end-to-end), GitHub Actions |
-| Deploy | Vercel |
+| Backend | [lvl-api](https://github.com/Fufexo/lvl-api): Java 21 + Spring Boot 4, PostgreSQL |
+| Deploy | Vercel (front) · Render + Neon (API) |
 
 ## Decisiones técnicas
 
 - **Renderizado híbrido por ruta.** La landing y `/ingresar` se prerenderizan a HTML (se ven y se indexan sin JavaScript). El panel es privado y vive en el navegador, así que se renderiza solo en el cliente, detrás de un guard que recuerda a dónde ibas (`?volver=`) y rechaza destinos fuera de `/app`.
 - **Estado con signals, un store por dominio.** `BankStore` (cuentas y movimientos), `CardsStore` y `SquadStore` exponen su estado con `signal`/`computed` y persisten en `localStorage` mediante un `effect`, tolerando almacenamiento bloqueado o SSR. Las tarjetas y el squad no tocan los saldos directamente: registran movimientos a través de `BankStore.record()`, así el historial y los saldos nunca se desincronizan. Las operaciones son asíncronas, con latencia simulada, para que la UI tenga estados de carga reales.
+- **Sesión segura con la API.** El access token (JWT de 15 minutos) vive solo en memoria y el refresh token en una cookie `HttpOnly; SameSite=Strict`: un script inyectado no puede leer una credencial duradera. Un interceptor agrega el token, lo renueva al recargar la página o ante un 401 (una sola renovación compartida entre peticiones simultáneas, porque los tokens rotan) y devuelve al ingreso si la sesión ya no es válida. La API se sirve en el mismo dominio (`/api`, con rewrite en Vercel y proxy en desarrollo), así que no hay CORS ni cookies de terceros.
+- **Un store, dos fuentes.** `BankStore` mantiene la misma API para las pantallas y elige su fuente según el modo: estado local en la demo, datos del servidor en la cuenta real. Las transferencias reales envían una `Idempotency-Key` por intento; si el usuario reintenta tras un error de red, nunca se cobra dos veces. Los errores del servidor (RFC 9457) llegan con el campo afectado y se muestran junto a él.
+- **Servidor que despierta.** La API corre en un plan gratuito que se duerme; si la carga tarda, la interfaz lo explica en lugar de mostrar un spinner mudo.
 - **Select propio, accesible y flotante.** Los combobox usan un componente con el patrón WAI-ARIA *select-only combobox* (teclado completo, búsqueda por letra, `aria-activedescendant`). La lista vive en la *top layer* del navegador con la Popover API, así que ningún contenedor la recorta, y se integra con Signal Forms implementando `FormValueControl`.
 - **Navegación fluida.** Los cambios de pantalla usan la View Transitions API del navegador (`withViewTransitions`): la barra lateral queda fija y solo el contenido sale y entra. Las pantallas del panel se precargan al entrar a `/app` (estrategia propia, respeta el ahorro de datos), así cambiar de sección no descarga nada. Con movimiento reducido el cambio es instantáneo.
 - **Misiones derivadas, no duplicadas.** Cada movimiento guarda su origen (tarjeta, squad, ahorro…) y las misiones calculan su progreso a partir de esos datos; no hay contadores paralelos que puedan desincronizarse.
@@ -74,8 +85,8 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ## Calidad
 
-- **42 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, ofertas, cofres, misiones, persistencia), guard y redirección segura, asistente de transferencia y filtros de movimientos.
-- **12 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, oferta aplicada, cofre que completa una misión, congelar y eliminar tarjeta, squad, simulador, select solo con teclado y navegación móvil. El tipo de cambio se simula para que sean deterministas.
+- **59 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, ofertas, cofres, misiones, persistencia), guard y redirección segura, asistente de transferencia, filtros de movimientos, errores de la API, interceptor (renovación única, reintento tras 401, sesión expirada) y modo cuenta real.
+- **14 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, oferta aplicada, cofre que completa una misión, congelar y eliminar tarjeta, squad, simulador, select solo con teclado, navegación móvil y la cuenta real (registro, saldos del servidor y pago a otro jugador, con la API simulada). El tipo de cambio se simula para que sean deterministas.
 - **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing y las nueve páginas del panel.
 - Todo corre en GitHub Actions en cada push.
 - **Lighthouse** sobre producción, landing:
@@ -120,11 +131,14 @@ npm run e2e        # tests end-to-end (después de npm run build)
 
 La primera vez que corras los e2e instala el navegador con `npx playwright install chromium`.
 
-Los datos del panel se guardan en tu navegador. Para volver al estado inicial usa **Reiniciar datos de demo** en la barra lateral.
+En modo demo los datos se guardan en tu navegador; para volver al estado inicial usa **Reiniciar datos de demo** en la barra lateral.
+
+Para la cuenta real en desarrollo, levanta también la [API](https://github.com/Fufexo/lvl-api) en `http://localhost:8080` (`./mvnw spring-boot:run`, con Docker abierto). `npm start` le reenvía `/api` mediante `proxy.conf.json`.
 
 ## Próximos pasos
 
-- Backend real (por ejemplo Supabase) con autenticación, para que los datos sigan al usuario entre dispositivos.
+- Migrar a la API tarjetas, botín, misiones, cofres y squad.
+- Ingreso con Discord.
 - Notificaciones cuando una oferta está por vencer o una misión queda lista.
 
 ## Autor

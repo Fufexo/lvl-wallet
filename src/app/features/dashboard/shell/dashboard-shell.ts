@@ -1,10 +1,12 @@
-import { Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { filter } from 'rxjs';
 
+import { AuthApi } from '../../../core/api/auth-api';
 import { SmoothScroll } from '../../../core/motion/smooth-scroll';
 import { Session } from '../../../core/session';
+import { Button } from '../../../shared/ui/button';
 import { Icon, IconName } from '../../../shared/ui/icon';
 import { ProgressBar } from '../../../shared/ui/progress-bar';
 import { BankStore } from '../data/bank-store';
@@ -16,11 +18,13 @@ interface NavItem {
   readonly label: string;
   readonly icon: IconName;
   readonly exact: boolean;
+  /** Runs on demo data only for now (see DemoOnly). */
+  readonly demo?: boolean;
 }
 
 @Component({
   selector: 'app-dashboard-shell',
-  imports: [Icon, ProgressBar, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [Button, Icon, ProgressBar, RouterLink, RouterLinkActive, RouterOutlet],
   host: {
     class: 'block min-h-dvh bg-ink text-fg lg:grid lg:grid-cols-[272px_minmax(0,1fr)]',
     '(document:keydown.escape)': 'closeMore(true)',
@@ -33,6 +37,7 @@ export class DashboardShell {
   private readonly router = inject(Router);
   private readonly scroll = inject(SmoothScroll);
   private readonly demo = inject(DemoData);
+  private readonly auth = inject(AuthApi);
   protected readonly missions = inject(MissionsStore);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
   private readonly moreToggle = viewChild<ElementRef<HTMLButtonElement>>('moreToggle');
@@ -44,16 +49,16 @@ export class DashboardShell {
         { path: '/app', label: 'Resumen', short: 'Resumen', icon: 'home', exact: true },
         { path: '/app/movimientos', label: 'Movimientos', short: 'Movim.', icon: 'list', exact: false },
         { path: '/app/transferir', label: 'Transferir', short: 'Transferir', icon: 'send', exact: false },
-        { path: '/app/cofres', label: 'Cofres de ahorro', short: 'Cofres', icon: 'target', exact: false },
+        { path: '/app/cofres', demo: true, label: 'Cofres de ahorro', short: 'Cofres', icon: 'target', exact: false },
       ],
     },
     {
       title: 'Juego',
       items: [
-        { path: '/app/tarjetas', label: 'Tarjetas virtuales', short: 'Tarjetas', icon: 'card', exact: false },
-        { path: '/app/botin', label: 'Botín de aliados', short: 'Botín', icon: 'tag', exact: false },
-        { path: '/app/misiones', label: 'Misiones', short: 'Misiones', icon: 'flag', exact: false },
-        { path: '/app/squad', label: 'Squad', short: 'Squad', icon: 'users', exact: false },
+        { path: '/app/tarjetas', demo: true, label: 'Tarjetas virtuales', short: 'Tarjetas', icon: 'card', exact: false },
+        { path: '/app/botin', demo: true, label: 'Botín de aliados', short: 'Botín', icon: 'tag', exact: false },
+        { path: '/app/misiones', demo: true, label: 'Misiones', short: 'Misiones', icon: 'flag', exact: false },
+        { path: '/app/squad', demo: true, label: 'Squad', short: 'Squad', icon: 'users', exact: false },
       ],
     },
     {
@@ -77,8 +82,22 @@ export class DashboardShell {
     'flex min-h-11 w-full items-center gap-3 rounded-panel px-4 text-left text-sm text-dim transition-colors hover:bg-white/5 hover:text-fg';
   protected readonly confirmingReset = signal(false);
   protected readonly initial = () => this.session.gamertag()?.charAt(0) ?? '?';
+  /** Missions are demo-only for now: no badge for real accounts. */
+  protected readonly claimable = computed(() => (this.bank.live() ? 0 : this.missions.claimable()));
+  /** The free API server sleeps when idle: explain the wait once loading takes a while. */
+  protected readonly slow = signal(false);
 
   constructor() {
+    effect(() => this.bank.ensureLoaded());
+    effect((onCleanup) => {
+      if (this.bank.status() !== 'loading') {
+        this.slow.set(false);
+        return;
+      }
+      const timer = setTimeout(() => this.slow.set(true), 3000);
+      onCleanup(() => clearTimeout(timer));
+    });
+
     // After each in-panel navigation: back to the top and focus on the new page's heading,
     // so screen reader and keyboard users land on the new content.
     // On a fresh page load the browser already starts at the top: skip that first focus move.
@@ -120,7 +139,8 @@ export class DashboardShell {
     if (restoreFocus) this.moreToggle()?.nativeElement.focus();
   }
 
-  protected signOut(): void {
+  protected async signOut(): Promise<void> {
+    if (this.session.isLive()) await this.auth.logout();
     this.session.signOut();
     void this.router.navigateByUrl('/');
   }

@@ -28,9 +28,12 @@
             >
               <app-icon [name]="item.icon" class="size-5" />
               <span class="flex-1">{{ item.label }}</span>
-              @if (item.path === '/app/misiones' && missions.claimable()) {
+              @if (item.demo && bank.live()) {
+                <span class="rounded-md bg-white/7 px-1.5 py-0.5 font-mono text-[11px] text-subtle">Demo</span>
+              }
+              @if (item.path === '/app/misiones' && claimable()) {
                 <span class="grid min-w-5 place-items-center rounded-full bg-lime px-1.5 font-mono text-xs font-bold text-ink">
-                  {{ missions.claimable() }}<span class="sr-only"> para reclamar</span>
+                  {{ claimable() }}<span class="sr-only"> para reclamar</span>
                 </span>
               }
             </a>
@@ -48,7 +51,12 @@
         </span>
         <div class="min-w-0">
           <p class="m-0 truncate font-medium">{{ session.gamertag() }}</p>
-          <p class="m-0 text-[13px] text-subtle">Nivel {{ bank.progress().level }} · {{ bank.progress().rank }}</p>
+          <p class="m-0 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-subtle">
+            <span class="rounded-md px-1.5 py-0.5 font-mono text-[11px] whitespace-nowrap" [class]="bank.live() ? 'bg-lime/14 text-lime' : 'bg-white/7 text-subtle'">
+              {{ bank.live() ? 'Cuenta real' : 'Demo' }}
+            </span>
+            <span class="whitespace-nowrap">Nivel {{ bank.progress().level }} · {{ bank.progress().rank }}</span>
+          </p>
         </div>
       </div>
       <app-progress-bar
@@ -62,10 +70,12 @@
     </div>
 
     <div class="flex flex-col gap-1">
-      <button type="button" [class]="secondaryAction" (click)="resetDemo()">
-        <app-icon name="refresh" class="size-4.5" />
-        {{ confirmingReset() ? 'Confirmar: borrar mis cambios' : 'Reiniciar datos de demo' }}
-      </button>
+      @if (!bank.live()) {
+        <button type="button" [class]="secondaryAction" (click)="resetDemo()">
+          <app-icon name="refresh" class="size-4.5" />
+          {{ confirmingReset() ? 'Confirmar: borrar mis cambios' : 'Reiniciar datos de demo' }}
+        </button>
+      }
       <button type="button" [class]="secondaryAction" (click)="signOut()">
         <app-icon name="logout" class="size-4.5" />
         Cerrar sesión
@@ -96,7 +106,42 @@
   </header>
 
   <main #main id="contenido" tabindex="-1" class="page-transition mx-auto w-full max-w-6xl flex-1 px-4 pt-8 pb-32 outline-none sm:px-6 lg:px-10 lg:pb-12">
-    <router-outlet />
+    @switch (bank.status()) {
+      @case ('ready') {
+        <router-outlet />
+      }
+      @case ('error') {
+        <section role="alert" class="glass mx-auto flex max-w-xl flex-col gap-4 rounded-card p-7">
+          <span class="grid size-12 place-items-center rounded-xl bg-ember/16 text-ember"><app-icon name="alert" class="size-6" /></span>
+          <h1 tabindex="-1" class="m-0 font-display text-2xl font-bold outline-none">No pudimos cargar tu cuenta</h1>
+          <p class="m-0 text-muted">{{ bank.loadError() }}</p>
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <button type="button" appButton (click)="bank.reload()">
+              <app-icon name="refresh" class="size-4.5" /> Reintentar
+            </button>
+            <button type="button" appButton="glass" (click)="signOut()">Salir</button>
+          </div>
+        </section>
+      }
+      @default {
+        <section aria-busy="true" aria-labelledby="loading-title" class="flex flex-col gap-6">
+          <h1 id="loading-title" tabindex="-1" class="m-0 flex items-center gap-3 font-display text-2xl font-bold outline-none">
+            <span aria-hidden="true" class="size-5 animate-spin rounded-full border-2 border-white/20 border-t-lime"></span>
+            Cargando tu cuenta…
+          </h1>
+          <p class="m-0 text-muted" aria-live="polite">
+            @if (slow()) {
+              Estamos despertando el servidor. Usa un plan gratuito que se duerme cuando nadie lo usa, así que la
+              primera carga puede tardar hasta un minuto.
+            }
+          </p>
+          <div aria-hidden="true" class="grid gap-4 lg:grid-cols-3">
+            <div class="glass h-56 animate-pulse rounded-card lg:col-span-2"></div>
+            <div class="glass h-56 animate-pulse rounded-card"></div>
+          </div>
+        </section>
+      }
+    }
   </main>
 </div>
 
@@ -119,21 +164,26 @@
           >
             <app-icon [name]="item.icon" class="size-5" />
             <span class="flex-1">{{ item.label }}</span>
-            @if (item.path === '/app/misiones' && missions.claimable()) {
+            @if (item.demo && bank.live()) {
+              <span class="rounded-md bg-white/7 px-1.5 py-0.5 font-mono text-[11px] text-subtle">Demo</span>
+            }
+            @if (item.path === '/app/misiones' && claimable()) {
               <span class="grid min-w-5 place-items-center rounded-full bg-lime px-1.5 font-mono text-xs font-bold text-ink">
-                {{ missions.claimable() }}<span class="sr-only"> para reclamar</span>
+                {{ claimable() }}<span class="sr-only"> para reclamar</span>
               </span>
             }
           </a>
         </li>
       }
-      <li class="mt-1 border-t border-white/8 pt-1">
-        <button type="button" [class]="secondaryAction" (click)="resetDemo()">
-          <app-icon name="refresh" class="size-4.5" />
-          {{ confirmingReset() ? 'Confirmar: borrar mis cambios' : 'Reiniciar datos de demo' }}
-        </button>
-      </li>
-      <li>
+      @if (!bank.live()) {
+        <li class="mt-1 border-t border-white/8 pt-1">
+          <button type="button" [class]="secondaryAction" (click)="resetDemo()">
+            <app-icon name="refresh" class="size-4.5" />
+            {{ confirmingReset() ? 'Confirmar: borrar mis cambios' : 'Reiniciar datos de demo' }}
+          </button>
+        </li>
+      }
+      <li [class]="bank.live() ? 'mt-1 border-t border-white/8 pt-1' : ''">
         <button type="button" [class]="secondaryAction" (click)="signOut()">
           <app-icon name="logout" class="size-4.5" /> Cerrar sesión
         </button>
@@ -168,12 +218,12 @@
       >
         <span class="relative">
           <app-icon name="more" class="size-5.5" />
-          @if (missions.claimable() && !moreOpen()) {
+          @if (claimable() && !moreOpen()) {
             <span aria-hidden="true" class="absolute -top-1 -right-1.5 size-2.5 rounded-full bg-lime"></span>
           }
         </span>
         Más
-        @if (missions.claimable()) { <span class="sr-only">(hay misiones para reclamar)</span> }
+        @if (claimable()) { <span class="sr-only">(hay misiones para reclamar)</span> }
       </button>
     </li>
   </ul>
