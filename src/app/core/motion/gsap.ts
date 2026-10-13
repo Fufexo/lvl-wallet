@@ -1,6 +1,5 @@
 import { gsap } from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { SplitText } from 'gsap/SplitText';
 
 let registered = false;
 
@@ -10,10 +9,10 @@ let registered = false;
  */
 export function useGsap() {
   if (!registered) {
-    gsap.registerPlugin(ScrollTrigger, SplitText);
+    gsap.registerPlugin(ScrollTrigger);
     registered = true;
   }
-  return { gsap, ScrollTrigger, SplitText };
+  return { gsap, ScrollTrigger };
 }
 
 function matches(query: string): boolean | null {

@@ -106,11 +106,47 @@
 }
 
 /*
- * Hero intro without a flash: an inline script in index.html adds `.motion` before
- * first paint (only when motion is allowed), so the prerendered hero starts hidden and
- * GSAP reveals it. If JS never runs, the fallback animation shows it after 2.5s.
+ * Hero intro without a flash. An inline script in index.html adds `.motion` before first
+ * paint (only when motion is allowed):
+ * - The headline (the LCP element) rises line by line from a mask with pure CSS, so it
+ *   starts on first paint instead of waiting for hydration.
+ * - The rest of the hero starts hidden and GSAP reveals it; if JS never runs, the fallback
+ *   animation shows it after 2.5s.
  */
-.motion [data-hero-root] {
+.hero-line {
+  display: block;
+}
+
+.motion .hero-line {
+  /* Clip below the line while the text rises, then release so the glow is not cut. */
+  animation: hero-line-mask 1.25s both;
+}
+
+.motion .hero-line > span {
+  display: inline-block;
+  animation: hero-line-rise 1.1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.motion .hero-line:nth-child(2),
+.motion .hero-line:nth-child(2) > span {
+  animation-delay: 0.08s;
+}
+
+.motion .hero-line:nth-child(3),
+.motion .hero-line:nth-child(3) > span {
+  animation-delay: 0.16s;
+}
+
+@keyframes hero-line-mask {
+  0%, 99% { clip-path: inset(-50% -50% 0 -50%); }
+  100% { clip-path: none; }
+}
+
+@keyframes hero-line-rise {
+  from { transform: translateY(105%); }
+}
+
+.motion [data-hero-root] [data-hero]:not([data-hero="xp"]) {
   visibility: hidden;
   animation: hero-fallback 0s 2.5s forwards;
 }

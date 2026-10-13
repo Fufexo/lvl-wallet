@@ -23,13 +23,12 @@ import { Movement, WalletCard } from '../components/wallet-card';
             BILLETERA DIGITAL PARA GAMERS
           </span>
 
-          <h1
-            #title
-            class="m-0 font-display text-[clamp(48px,7.4vw,104px)] leading-[0.95] font-black tracking-[-0.035em] uppercase"
-          >
-            Sube de<br />nivel tu<br /><span class="text-lime [text-shadow:0_0_40px_rgb(198_255_61/0.35)]"
-              >dinero.</span
-            >
+          <!-- The headline is the LCP element: its reveal is pure CSS (styles.css), so it
+               starts on first paint instead of waiting for hydration and GSAP. -->
+          <h1 class="m-0 font-display text-[clamp(48px,7.4vw,104px)] leading-[0.95] font-black tracking-[-0.035em] uppercase">
+            <span class="hero-line"><span>Sube de</span></span>
+            <span class="hero-line"><span>nivel tu</span></span>
+            <span class="hero-line"><span class="text-lime [text-shadow:0_0_40px_rgb(198_255_61/0.35)]">dinero.</span></span>
           </h1>
 
           <p data-hero="lead" class="m-0 max-w-[520px] text-[19px] text-muted">
@@ -72,7 +71,6 @@ export class Hero {
   ];
 
   private readonly root = viewChild.required<ElementRef<HTMLElement>>('root');
-  private readonly title = viewChild.required<ElementRef<HTMLElement>>('title');
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
@@ -83,8 +81,6 @@ export class Hero {
       const root = this.root().nativeElement;
       const q = (selector: string) => root.querySelector<HTMLElement>(selector);
 
-      // index.html hides the hero before first paint; the intro reveals it right after
-      // hydration. Waiting for web fonts here delayed the LCP by seconds on mobile.
       const ctx = gsap.context(() => this.intro(root, q), root);
       this.destroyRef.onDestroy(() => ctx.revert());
     });
@@ -94,27 +90,10 @@ export class Hero {
     root: HTMLElement,
     q: (selector: string) => HTMLElement | null,
   ): (() => void) | undefined {
-    const { gsap, SplitText } = useGsap();
-    gsap.set(root, { autoAlpha: 1 });
+    const { gsap } = useGsap();
 
-    // Masked word-by-word headline. `autoSplit` re-splits when the web fonts arrive (their
-    // metrics change the line breaks) and carries the tween's progress over to the new split.
-    // Once the words land, the split is reverted to restore the plain DOM (and the glow).
-    SplitText.create(this.title().nativeElement, {
-      type: 'lines,words',
-      mask: 'lines',
-      autoSplit: true,
-      onSplit: (split) =>
-        gsap.from(split.words, {
-          yPercent: 110,
-          stagger: 0.06,
-          duration: 1.2,
-          delay: 0.15,
-          ease: 'expo.out',
-          onComplete: () => split.revert(),
-        }),
-    });
-
+    // Everything around the headline enters with GSAP; index.html keeps these hidden
+    // until now so they never flash in their final position first.
     const tl = gsap.timeline({ defaults: { ease: 'expo.out', duration: 1.1 } });
 
     tl.from(q('[data-hero="eyebrow"]'), { autoAlpha: 0, y: 20, duration: 0.8 }, 0)
