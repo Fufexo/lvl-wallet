@@ -44,7 +44,7 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 | Formularios | Signal Forms (`@angular/forms/signals`) con validación por schema |
 | Renderizado | Prerender estático para las páginas públicas; render en el cliente para el panel |
 | Estilos | Tailwind CSS v4 con tokens de diseño en `@theme` |
-| Animación | GSAP 3 (ScrollTrigger, SplitText) + Lenis, cargados bajo demanda |
+| Animación | GSAP 3 (ScrollTrigger, SplitText) + Lenis |
 | Tests | Vitest + GitHub Actions |
 | Deploy | Vercel |
 
@@ -55,7 +55,7 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 - **Lógica de negocio pura y testeada.** Amortización, tasas, niveles y formato de montos son funciones puras con sus tests; los componentes solo las muestran.
 - **Formularios accesibles.** Cada error se conecta a su campo con `aria-describedby`; si el envío falla aparece un resumen con enlaces a cada campo que recibe el foco. Al cambiar de página o de paso, el foco va al nuevo título.
 - **Gráfico sin librerías.** SVG propio con escala de ticks legibles, tooltip al pasar el mouse y resumen textual para lectores de pantalla. La tabla de cronograma es la vista alternativa. La paleta del gráfico se validó para daltonismo y contraste sobre el fondo oscuro.
-- **Prerender + animación sin parpadeo.** Todo el código de GSAP y Lenis corre en `afterNextRender`, nunca en el servidor. Un script mínimo oculta el hero antes del primer pintado para que no "aparezca y desaparezca" al hidratar. GSAP y Lenis se importan bajo demanda, así que el panel no los descarga.
+- **Prerender + animación sin parpadeo.** Todo el código de GSAP y Lenis corre en `afterNextRender`, nunca en el servidor. Un script mínimo oculta el hero antes del primer pintado para que no "aparezca y desaparezca" al hidratar. GSAP va en el bundle inicial a propósito: el hero (el elemento LCP) lo necesita para aparecer, y separarlo en otro chunk empeoró el LCP en las mediciones.
 - **Movimiento reducido de verdad.** Con `prefers-reduced-motion` no hay scroll suave, animaciones ni transiciones.
 - **SEO por ruta.** Open Graph con imagen, `canonical` en la landing, `robots.txt` y `sitemap.xml`.
 

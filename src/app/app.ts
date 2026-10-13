@@ -13,7 +13,7 @@ export class App {
 
   constructor() {
     // Browser-only: Lenis + GSAP never run during SSR/prerender.
-    afterNextRender(() => void this.smoothScroll.init());
+    afterNextRender(() => this.smoothScroll.init());
     inject(DestroyRef).onDestroy(() => this.smoothScroll.destroy());
   }
 }
