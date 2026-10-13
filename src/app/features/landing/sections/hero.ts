@@ -83,20 +83,10 @@ export class Hero {
       const root = this.root().nativeElement;
       const q = (selector: string) => root.querySelector<HTMLElement>(selector);
 
-      // Keep the hero hidden (index.html already hides it before paint) until web fonts
-      // are ready, so the headline splits on its final metrics.
-      const ctx = gsap.context(() => {
-        gsap.set(root, { autoAlpha: 0 });
-      }, root);
-      let destroyed = false;
-      this.destroyRef.onDestroy(() => {
-        destroyed = true;
-        ctx.revert();
-      });
-
-      document.fonts.ready.then(() => {
-        if (!destroyed) ctx.add(() => this.intro(root, q));
-      });
+      // index.html hides the hero before first paint; the intro reveals it right after
+      // hydration. Waiting for web fonts here delayed the LCP by seconds on mobile.
+      const ctx = gsap.context(() => this.intro(root, q), root);
+      this.destroyRef.onDestroy(() => ctx.revert());
     });
   }
 
@@ -107,17 +97,27 @@ export class Hero {
     const { gsap, SplitText } = useGsap();
     gsap.set(root, { autoAlpha: 1 });
 
-    // Masked word-by-word headline. The split is reverted once the intro finishes,
-    // which restores the plain DOM (and the un-clipped glow on "dinero.").
-    const split = SplitText.create(this.title().nativeElement, { type: 'lines,words', mask: 'lines' });
-
-    const tl = gsap.timeline({
-      defaults: { ease: 'expo.out', duration: 1.1 },
-      onComplete: () => split.revert(),
+    // Masked word-by-word headline. `autoSplit` re-splits when the web fonts arrive (their
+    // metrics change the line breaks) and carries the tween's progress over to the new split.
+    // Once the words land, the split is reverted to restore the plain DOM (and the glow).
+    SplitText.create(this.title().nativeElement, {
+      type: 'lines,words',
+      mask: 'lines',
+      autoSplit: true,
+      onSplit: (split) =>
+        gsap.from(split.words, {
+          yPercent: 110,
+          stagger: 0.06,
+          duration: 1.2,
+          delay: 0.15,
+          ease: 'expo.out',
+          onComplete: () => split.revert(),
+        }),
     });
 
+    const tl = gsap.timeline({ defaults: { ease: 'expo.out', duration: 1.1 } });
+
     tl.from(q('[data-hero="eyebrow"]'), { autoAlpha: 0, y: 20, duration: 0.8 }, 0)
-      .from(split.words, { yPercent: 110, stagger: 0.06, duration: 1.2 }, 0.15)
       .from(q('[data-hero="lead"]'), { autoAlpha: 0, y: 24 }, 0.55)
       .from(q('[data-hero="ctas"]'), { autoAlpha: 0, y: 24 }, 0.65)
       .from(q('[data-hero="card"]'), { autoAlpha: 0, y: 80, rotateX: 14, duration: 1.4 }, 0.35)
