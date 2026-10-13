@@ -1,13 +1,15 @@
-import { Component, DestroyRef, ElementRef, inject, signal, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, computed, inject, signal, viewChild } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { filter, skip } from 'rxjs';
+import { filter } from 'rxjs';
 
 import { SmoothScroll } from '../../../core/motion/smooth-scroll';
 import { Session } from '../../../core/session';
 import { Icon, IconName } from '../../../shared/ui/icon';
 import { ProgressBar } from '../../../shared/ui/progress-bar';
 import { BankStore } from '../data/bank-store';
+import { CardsStore } from '../data/cards-store';
+import { SquadStore } from '../data/squad-store';
 
 interface NavItem {
   readonly path: string;
@@ -19,7 +21,10 @@ interface NavItem {
 @Component({
   selector: 'app-dashboard-shell',
   imports: [Icon, ProgressBar, RouterLink, RouterLinkActive, RouterOutlet],
-  host: { class: 'block min-h-dvh bg-ink text-fg lg:grid lg:grid-cols-[272px_minmax(0,1fr)]' },
+  host: {
+    class: 'block min-h-dvh bg-ink text-fg lg:grid lg:grid-cols-[272px_minmax(0,1fr)]',
+    '(document:keydown.escape)': 'closeMore(true)',
+  },
   template: `
     <a
       href="#contenido"
@@ -115,10 +120,44 @@ interface NavItem {
       </main>
     </div>
 
-    <!-- Mobile bottom navigation -->
+    <!-- Mobile bottom navigation: four destinations plus "Más" (max five items). -->
     <nav aria-label="Panel" class="fixed inset-x-0 bottom-0 z-40 border-t border-white/8 bg-ink-2/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-      <ul class="m-0 grid list-none grid-cols-4 p-0">
-        @for (item of nav; track item.path) {
+      <div
+        id="mas-menu"
+        class="absolute inset-x-3 bottom-full mb-2 rounded-card border border-white/12 bg-ink-2 p-2 shadow-float"
+        [hidden]="!moreOpen()"
+      >
+        <ul class="m-0 flex list-none flex-col p-0">
+          @for (item of moreItems; track item.path) {
+            <li>
+              <a
+                [routerLink]="item.path"
+                routerLinkActive="text-lime"
+                ariaCurrentWhenActive="page"
+                class="flex min-h-12 items-center gap-3 rounded-panel px-4 text-fg no-underline hover:bg-white/6"
+                (click)="closeMore()"
+              >
+                <app-icon [name]="item.icon" class="size-5" />
+                {{ item.label }}
+              </a>
+            </li>
+          }
+          <li class="mt-1 border-t border-white/8 pt-1">
+            <button type="button" [class]="secondaryAction" (click)="resetDemo()">
+              <app-icon name="refresh" class="size-4.5" />
+              {{ confirmingReset() ? 'Confirmar: borrar mis cambios' : 'Reiniciar datos de demo' }}
+            </button>
+          </li>
+          <li>
+            <button type="button" [class]="secondaryAction" (click)="signOut()">
+              <app-icon name="logout" class="size-4.5" /> Cerrar sesión
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <ul class="m-0 grid list-none grid-cols-5 p-0">
+        @for (item of bottomItems; track item.path) {
           <li>
             <a
               [routerLink]="item.path"
@@ -132,6 +171,20 @@ interface NavItem {
             </a>
           </li>
         }
+        <li>
+          <button
+            #moreToggle
+            type="button"
+            class="flex min-h-16 w-full flex-col items-center justify-center gap-1 text-xs"
+            [class]="moreOpen() || moreActive() ? 'text-lime' : 'text-dim'"
+            aria-controls="mas-menu"
+            [attr.aria-expanded]="moreOpen()"
+            (click)="moreOpen.set(!moreOpen())"
+          >
+            <app-icon name="more" class="size-5.5" />
+            Más
+          </button>
+        </li>
       </ul>
     </nav>
   `,
@@ -141,14 +194,26 @@ export class DashboardShell {
   protected readonly bank = inject(BankStore);
   private readonly router = inject(Router);
   private readonly scroll = inject(SmoothScroll);
+  private readonly cards = inject(CardsStore);
+  private readonly squad = inject(SquadStore);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
+  private readonly moreToggle = viewChild<ElementRef<HTMLButtonElement>>('moreToggle');
 
   protected readonly nav: readonly (NavItem & { short: string })[] = [
     { path: '/app', label: 'Resumen', short: 'Resumen', icon: 'home', exact: true },
     { path: '/app/movimientos', label: 'Movimientos', short: 'Movim.', icon: 'list', exact: false },
     { path: '/app/transferir', label: 'Transferir', short: 'Transferir', icon: 'send', exact: false },
+    { path: '/app/tarjetas', label: 'Tarjetas virtuales', short: 'Tarjetas', icon: 'card', exact: false },
+    { path: '/app/squad', label: 'Squad', short: 'Squad', icon: 'users', exact: false },
     { path: '/app/prestamos', label: 'Simulador de préstamos', short: 'Préstamos', icon: 'calculator', exact: false },
   ];
+
+  /** Mobile: the first four destinations go in the bar, the rest behind "Más". */
+  protected readonly bottomItems = this.nav.filter((i) => !['/app/squad', '/app/prestamos'].includes(i.path));
+  protected readonly moreItems = this.nav.filter((i) => ['/app/squad', '/app/prestamos'].includes(i.path));
+  protected readonly moreOpen = signal(false);
+  private readonly url = signal(this.router.url);
+  protected readonly moreActive = computed(() => this.moreItems.some((i) => this.url().startsWith(i.path)));
 
   protected readonly secondaryAction =
     'flex min-h-11 w-full items-center gap-3 rounded-panel px-4 text-left text-sm text-dim transition-colors hover:bg-white/5 hover:text-fg';
@@ -158,13 +223,21 @@ export class DashboardShell {
   constructor() {
     // After each in-panel navigation: back to the top and focus on the new page's heading,
     // so screen reader and keyboard users land on the new content.
+    // On a fresh page load the browser already starts at the top: skip that first focus move.
+    // Arriving from another page of the app (e.g. after signing in) still moves focus.
+    let first = !this.router.navigated;
     this.router.events
       .pipe(
-        filter((e) => e instanceof NavigationEnd),
-        skip(1),
+        filter((e): e is NavigationEnd => e instanceof NavigationEnd),
         takeUntilDestroyed(inject(DestroyRef)),
       )
-      .subscribe(() => {
+      .subscribe((e) => {
+        this.url.set(e.urlAfterRedirects);
+        this.moreOpen.set(false);
+        if (first) {
+          first = false;
+          return;
+        }
         this.scroll.scrollToTop();
         requestAnimationFrame(() => {
           const heading = this.main().nativeElement.querySelector<HTMLElement>('h1');
@@ -180,7 +253,15 @@ export class DashboardShell {
       return;
     }
     this.bank.reset();
+    this.cards.reset();
+    this.squad.reset();
     this.confirmingReset.set(false);
+  }
+
+  protected closeMore(restoreFocus = false): void {
+    if (!this.moreOpen()) return;
+    this.moreOpen.set(false);
+    if (restoreFocus) this.moreToggle()?.nativeElement.focus();
   }
 
   protected signOut(): void {

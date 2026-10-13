@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { NOW } from '../../../core/clock';
 import { ExchangeRate } from '../../../core/exchange-rate';
-import { BankStore, TRANSFER_LATENCY_MS, TransferError } from './bank-store';
+import { BankStore, LATENCY_MS, BankError } from './bank-store';
 
 describe('BankStore', () => {
   const rate = signal<number | null>(4);
@@ -19,7 +19,7 @@ describe('BankStore', () => {
   }
 
   async function settle<T>(promise: Promise<T>): Promise<T> {
-    await vi.advanceTimersByTimeAsync(TRANSFER_LATENCY_MS);
+    await vi.advanceTimersByTimeAsync(LATENCY_MS);
     return promise;
   }
 
@@ -72,15 +72,15 @@ describe('BankStore', () => {
     const store = setup();
     const tooMuch = expect(
       store.transfer({ fromId: 'usd', to: { kind: 'contact', id: 'ana' }, amount: 999, note: '' }),
-    ).rejects.toBeInstanceOf(TransferError);
-    await vi.advanceTimersByTimeAsync(TRANSFER_LATENCY_MS);
+    ).rejects.toBeInstanceOf(BankError);
+    await vi.advanceTimersByTimeAsync(LATENCY_MS);
     await tooMuch;
 
     rate.set(null);
     const noRate = expect(
       store.transfer({ fromId: 'pen', to: { kind: 'account', id: 'usd' }, amount: 10, note: '' }),
     ).rejects.toThrow('tipo de cambio');
-    await vi.advanceTimersByTimeAsync(TRANSFER_LATENCY_MS);
+    await vi.advanceTimersByTimeAsync(LATENCY_MS);
     await noRate;
     expect(store.account('pen')?.balance).toBe(1284.5);
   });
@@ -89,7 +89,7 @@ describe('BankStore', () => {
     const store = setup();
     await settle(store.transfer({ fromId: 'pen', to: { kind: 'contact', id: 'diego' }, amount: 50, note: '' }));
     TestBed.tick();
-    expect(JSON.parse(localStorage.getItem('lvl.bank.v1')!).accounts[0].balance).toBe(1234.5);
+    expect(JSON.parse(localStorage.getItem('lvl.bank.v2')!).accounts[0].balance).toBe(1234.5);
 
     store.reset();
     expect(store.account('pen')?.balance).toBe(1284.5);

@@ -36,6 +36,33 @@ export interface Contact {
   readonly tone: 'violet' | 'lime' | 'ember';
 }
 
+export interface VirtualCard {
+  readonly id: string;
+  readonly label: string;
+  readonly accountId: string;
+  readonly last4: string;
+  /** "MM/AA" */
+  readonly expiry: string;
+  /** Total spending allowed on this card, in its account's currency. */
+  readonly limit: number;
+  readonly spent: number;
+  readonly frozen: boolean;
+}
+
+export interface SplitMember {
+  readonly contactId: string;
+  readonly paid: boolean;
+}
+
+/** A subscription the player pays in full and splits evenly with part of the squad. */
+export interface SharedSubscription {
+  readonly id: string;
+  readonly name: string;
+  readonly amount: number;
+  readonly accountId: string;
+  readonly members: readonly SplitMember[];
+}
+
 export const CATEGORY_LABELS: Record<Category, string> = {
   juegos: 'Juegos',
   suscripciones: 'Suscripciones',

@@ -32,7 +32,7 @@ describe('Movements filters', () => {
   });
 
   it('lists every movement, grouped by day', () => {
-    expect(count()).toBe('16 movimientos');
+    expect(count()).toBe('17 movimientos');
     expect(el.querySelector('section h2')?.textContent?.trim()).toBe('Hoy');
   });
 
@@ -45,7 +45,7 @@ describe('Movements filters', () => {
 
   it('searches without caring about accents or case', async () => {
     await search('SUSCRIPCION');
-    expect(count()).toBe('3 movimientos');
+    expect(count()).toBe('4 movimientos');
   });
 
   it('offers a way out when nothing matches', async () => {
@@ -54,6 +54,6 @@ describe('Movements filters', () => {
 
     [...el.querySelectorAll('button')].find((b) => b.textContent!.includes('Limpiar filtros'))!.click();
     await fixture.whenStable();
-    expect(count()).toBe('16 movimientos');
+    expect(count()).toBe('17 movimientos');
   });
 });

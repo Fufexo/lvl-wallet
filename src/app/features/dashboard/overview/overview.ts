@@ -1,5 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
+import { DecimalPipe, PercentPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { NOW } from '../../../core/clock';
@@ -11,10 +11,13 @@ import { ProgressBar } from '../../../shared/ui/progress-bar';
 import { BankStore } from '../data/bank-store';
 import { dayLabel } from '../data/dates';
 import { TransactionRow } from '../ui/transaction-row';
+import { CardsStore } from '../data/cards-store';
+import { SquadStore } from '../data/squad-store';
+import { annualRateForLevel } from '../data/loan';
 
 @Component({
   selector: 'app-overview',
-  imports: [ButtonLink, DecimalPipe, Icon, MoneyPipe, ProgressBar, RouterLink, TransactionRow],
+  imports: [ButtonLink, DecimalPipe, Icon, MoneyPipe, PercentPipe, ProgressBar, RouterLink, TransactionRow],
   host: { class: 'flex flex-col gap-8' },
   template: `
     <header class="flex flex-wrap items-end justify-between gap-4">
@@ -158,17 +161,45 @@ import { TransactionRow } from '../ui/transaction-row';
           }
         </p>
       </section>
+
+      <!-- Shortcuts to the other features -->
+      <a routerLink="/app/tarjetas" [class]="shortcut">
+        <span class="grid size-11 place-items-center rounded-xl bg-violet/18 text-lilac"><app-icon name="card" class="size-5" /></span>
+        <span class="flex flex-col">
+          <span class="font-display text-lg font-bold">Tarjetas virtuales</span>
+          <span class="text-sm text-muted">{{ cards.cards().length }} {{ cards.cards().length === 1 ? 'tarjeta' : 'tarjetas' }} · compra y suma XP</span>
+        </span>
+      </a>
+      <a routerLink="/app/squad" [class]="shortcut">
+        <span class="grid size-11 place-items-center rounded-xl bg-lime/14 text-lime"><app-icon name="users" class="size-5" /></span>
+        <span class="flex flex-col">
+          <span class="font-display text-lg font-bold">Tu squad te debe</span>
+          <span class="font-mono text-sm text-muted">{{ squad.pendingPen() ?? 0 | money: 'PEN' }}</span>
+        </span>
+      </a>
+      <a routerLink="/app/prestamos" [class]="shortcut">
+        <span class="grid size-11 place-items-center rounded-xl bg-white/8 text-fg"><app-icon name="calculator" class="size-5" /></span>
+        <span class="flex flex-col">
+          <span class="font-display text-lg font-bold">Préstamo con tu nivel</span>
+          <span class="font-mono text-sm text-muted">TEA {{ annualRate() | percent: '1.1-1' }}</span>
+        </span>
+      </a>
     </div>
   `,
 })
 export class Overview {
   protected readonly session = inject(Session);
   protected readonly bank = inject(BankStore);
+  protected readonly cards = inject(CardsStore);
+  protected readonly squad = inject(SquadStore);
+  protected readonly shortcut =
+    'glass flex items-center gap-4 rounded-card p-5 text-fg no-underline transition-colors hover:bg-white/8';
   private readonly now = inject(NOW);
 
   protected readonly progress = this.bank.progress;
   protected readonly xpToNext = computed(() => this.progress().xpForNext - this.progress().xpInLevel);
   protected readonly recent = computed(() => this.bank.transactions().slice(0, 5));
+  protected readonly annualRate = computed(() => annualRateForLevel(this.progress().level));
   protected readonly limitUsed = computed(() => this.bank.gamesSpentThisMonth() / this.bank.gamesMonthlyLimit);
 
   protected dayOf(iso: string): string {

@@ -25,7 +25,12 @@ export type IconName =
   | 'alert'
   | 'wallet'
   | 'coins'
-  | 'chevron-right';
+  | 'chevron-right'
+  | 'card'
+  | 'users'
+  | 'more'
+  | 'trash'
+  | 'sparkle';
 
 /**
  * Decorative stroke icon on a 24×24 grid. Size and color come from the host classes,
@@ -89,6 +94,14 @@ export type IconName =
           <path d="M10 15.5c.6 1.2 2.6 2 5 2 2.8 0 5-1.1 5-2.5v-4c0-1.4-2.2-2.5-5-2.5" />
         }
         @case ('chevron-right') { <path d="m9 6 6 6-6 6" /> }
+        @case ('card') { <rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /> }
+        @case ('users') {
+          <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+          <path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18 14.2a6.5 6.5 0 0 1 3.5 5.8" />
+        }
+        @case ('more') { <circle cx="5" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" /><circle cx="19" cy="12" r="1.2" /> }
+        @case ('trash') { <path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /><path d="M10 11v6M14 11v6" /> }
+        @case ('sparkle') { <path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /><path d="M19 15l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7z" /> }
       }
     </svg>
   `,

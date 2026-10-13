@@ -23,6 +23,16 @@ export const DASHBOARD_ROUTES: Routes = [
         loadComponent: () => import('./transfer/transfer').then((m) => m.Transfer),
       },
       {
+        path: 'tarjetas',
+        title: 'Tarjetas virtuales — LVL',
+        loadComponent: () => import('./cards/cards').then((m) => m.Cards),
+      },
+      {
+        path: 'squad',
+        title: 'Squad — LVL',
+        loadComponent: () => import('./squad/squad').then((m) => m.Squad),
+      },
+      {
         path: 'prestamos',
         title: 'Simulador de préstamos — LVL',
         loadComponent: () => import('./loans/loan-simulator').then((m) => m.LoanSimulator),

@@ -4,7 +4,7 @@ import { provideRouter } from '@angular/router';
 
 import { NOW } from '../../../core/clock';
 import { ExchangeRate } from '../../../core/exchange-rate';
-import { BankStore, TRANSFER_LATENCY_MS } from '../data/bank-store';
+import { BankStore, LATENCY_MS } from '../data/bank-store';
 import { Transfer } from './transfer';
 
 describe('Transfer wizard', () => {
@@ -69,7 +69,7 @@ describe('Transfer wizard', () => {
       await fixture.whenStable();
       expect(text()).toContain('Enviando…');
 
-      await vi.advanceTimersByTimeAsync(TRANSFER_LATENCY_MS);
+      await vi.advanceTimersByTimeAsync(LATENCY_MS);
       await fixture.whenStable();
 
       expect(text()).toContain('¡Transferencia enviada!');

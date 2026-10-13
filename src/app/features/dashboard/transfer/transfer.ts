@@ -16,7 +16,7 @@ import { ButtonLink } from '../../../shared/ui/button-link';
 import { FieldError } from '../../../shared/ui/field-error';
 import { Icon } from '../../../shared/ui/icon';
 import { MoneyPipe, formatMoney } from '../../../shared/ui/money';
-import { BankStore, Destination, TransferError, TransferReceipt } from '../data/bank-store';
+import { BankStore, Destination, BankError, TransferReceipt } from '../data/bank-store';
 
 type Step = 'form' | 'confirm' | 'done';
 
@@ -376,7 +376,7 @@ export class Transfer {
       this.receipt.set(await this.bank.transfer({ fromId: from, to: this.destination(), amount, note }));
       this.goTo('done');
     } catch (e) {
-      this.error.set(e instanceof TransferError ? e.message : 'No pudimos completar la transferencia. Intenta de nuevo.');
+      this.error.set(e instanceof BankError ? e.message : 'No pudimos completar la transferencia. Intenta de nuevo.');
     } finally {
       this.pending.set(false);
     }

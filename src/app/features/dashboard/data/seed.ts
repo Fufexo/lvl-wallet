@@ -1,4 +1,4 @@
-import { Account, Category, Contact, Transaction } from './models';
+import { Account, Category, Contact, SharedSubscription, Transaction, VirtualCard } from './models';
 
 /** XP the demo profile carries over from "previous seasons". */
 export const PREVIOUS_XP = 2480;
@@ -17,6 +17,24 @@ export const CONTACTS: readonly Contact[] = [
   { id: 'ana', name: 'Ana', handle: '@anitapro', tone: 'ember' },
 ];
 
+export const SEED_CARDS: readonly VirtualCard[] = [
+  { id: 'card-1', label: 'Tienda nueva', accountId: 'pen', last4: '3816', expiry: '', limit: 300, spent: 0, frozen: false },
+];
+
+export const SEED_SUBSCRIPTIONS: readonly SharedSubscription[] = [
+  {
+    id: 'sub-1',
+    name: 'Suscripción de anime',
+    amount: 25,
+    accountId: 'pen',
+    members: [
+      { contactId: 'vale', paid: true },
+      { contactId: 'diego', paid: false },
+      { contactId: 'ana', paid: false },
+    ],
+  },
+];
+
 interface SeedMovement {
   readonly accountId: string;
   readonly daysAgo: number;
@@ -30,7 +48,8 @@ interface SeedMovement {
 const MOVEMENTS: readonly SeedMovement[] = [
   { accountId: 'pen', daysAgo: 0, description: 'Pase de temporada', category: 'juegos', amount: -45.9, xp: 46 },
   { accountId: 'usd', daysAgo: 0, description: 'Tienda de juegos', category: 'juegos', amount: -29.99, xp: 112 },
-  { accountId: 'pen', daysAgo: 1, description: 'Suscripción de anime · dividida con 3', category: 'suscripciones', amount: -6.25, xp: 6 },
+  { accountId: 'pen', daysAgo: 1, description: 'Suscripción de anime · squad', category: 'suscripciones', amount: -25, xp: 25 },
+  { accountId: 'pen', daysAgo: 1, description: 'Pago de @vale.gg · Suscripción de anime', category: 'transferencias', amount: 6.25 },
   { accountId: 'pen', daysAgo: 2, description: 'Recarga por billetera móvil', category: 'recargas', amount: 300 },
   { accountId: 'pen', daysAgo: 4, description: 'Gift card de S/ 50', category: 'gift-cards', amount: -50, xp: 50 },
   { accountId: 'pen', daysAgo: 6, description: 'Cashback del nivel', category: 'cashback', amount: 8.4 },

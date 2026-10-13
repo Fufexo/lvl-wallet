@@ -7,7 +7,7 @@ import { Account, Contact, Currency, Transaction } from './models';
 import { progressFor } from './progression';
 import { CONTACTS, GAMES_MONTHLY_LIMIT, PREVIOUS_XP, SEED_ACCOUNTS, seedTransactions } from './seed';
 
-const KEY = 'lvl.bank.v1';
+const KEY = 'lvl.bank.v2';
 
 interface BankState {
   readonly accounts: readonly Account[];
@@ -40,12 +40,20 @@ export interface TransferReceipt extends TransferQuote {
   readonly toLabel: string;
 }
 
-export class TransferError extends Error {}
+/** A business rule rejected the operation; the message is shown to the player as is. */
+export class BankError extends Error {}
 
-const round2 = (n: number) => Math.round(n * 100) / 100;
+/** A movement about to be recorded: id and date are assigned by the store. */
+export type NewMovement = Omit<Transaction, 'id' | 'date'>;
+
+export const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Simulated network latency so the UI has real pending states. */
-export const TRANSFER_LATENCY_MS = 700;
+export const LATENCY_MS = 700;
+
+export function simulateLatency(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, LATENCY_MS));
+}
 
 @Service()
 export class BankStore {
@@ -59,9 +67,12 @@ export class BankStore {
   readonly contacts: readonly Contact[] = CONTACTS;
   readonly usdToPen = this.fx.usdToPen;
 
-  /** Newest first. */
+  /** Newest first; movements recorded at the same instant keep "last recorded on top". */
   readonly transactions = computed(() =>
-    [...this.state().transactions].sort((a, b) => b.date.localeCompare(a.date)),
+    this.state()
+      .transactions.map((t, i) => ({ t, i }))
+      .sort((a, b) => b.t.date.localeCompare(a.t.date) || b.i - a.i)
+      .map(({ t }) => t),
   );
 
   readonly totalXp = computed(
@@ -73,7 +84,7 @@ export class BankStore {
   readonly netWorthPen = computed(() => {
     const rate = this.usdToPen();
     if (rate === null) return null;
-    return round2(this.accounts().reduce((sum, a) => sum + this.toPen(a.balance, a.currency, rate), 0));
+    return round2(this.accounts().reduce((sum, a) => sum + this.convert(a.balance, a.currency, rate), 0));
   });
 
   /** Games spending in the current calendar month, in soles (USD converted when the rate is known). */
@@ -86,7 +97,7 @@ export class BankStore {
           const d = new Date(t.date);
           return t.category === 'juegos' && t.amount < 0 && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         })
-        .reduce((sum, t) => sum - this.toPen(t.amount, this.currencyOf(t.accountId), rate), 0),
+        .reduce((sum, t) => sum - this.convert(t.amount, this.currencyOf(t.accountId), rate), 0),
     );
   });
   readonly gamesMonthlyLimit = GAMES_MONTHLY_LIMIT;
@@ -115,30 +126,26 @@ export class BankStore {
   }
 
   async transfer(request: TransferRequest): Promise<TransferReceipt> {
-    await new Promise((resolve) => setTimeout(resolve, TRANSFER_LATENCY_MS));
+    await simulateLatency();
 
     const from = this.account(request.fromId);
-    if (!from) throw new TransferError('La cuenta de origen no existe.');
+    if (!from) throw new BankError('La cuenta de origen no existe.');
     if (request.to.kind === 'account' && request.to.id === from.id) {
-      throw new TransferError('Elige una cuenta de destino distinta a la de origen.');
+      throw new BankError('Elige una cuenta de destino distinta a la de origen.');
     }
-    if (!(request.amount > 0)) throw new TransferError('El monto debe ser mayor a cero.');
-    if (request.amount > from.balance) throw new TransferError('No tienes saldo suficiente en esa cuenta.');
+    if (!(request.amount > 0)) throw new BankError('El monto debe ser mayor a cero.');
+    this.assertFunds(from.id, request.amount);
 
     const quote = this.quote(from.id, request.to, request.amount);
-    if (!quote) throw new TransferError('El tipo de cambio no está disponible. Intenta en unos segundos.');
+    if (!quote) throw new BankError('El tipo de cambio no está disponible. Intenta en unos segundos.');
 
     const toLabel = this.destinationLabel(request.to);
-    const date = this.now().toISOString();
-    const id = `tx-${Date.now().toString(36)}`;
     const note = request.note.trim();
     const description = (label: string) => (note ? `${label} · ${note}` : label);
 
-    const movements: Transaction[] = [
+    const movements: NewMovement[] = [
       {
-        id: `${id}-out`,
         accountId: from.id,
-        date,
         description: description(`Transferencia a ${toLabel}`),
         category: 'transferencias',
         amount: -quote.debit,
@@ -147,9 +154,7 @@ export class BankStore {
     ];
     if (request.to.kind === 'account') {
       movements.push({
-        id: `${id}-in`,
         accountId: request.to.id,
-        date,
         description: description(`Transferencia desde ${from.name.toLowerCase()}`),
         category: 'transferencias',
         amount: quote.credit,
@@ -157,15 +162,40 @@ export class BankStore {
       });
     }
 
+    const [out] = this.record(movements);
+    return { ...quote, id: out.id, date: out.date, toLabel };
+  }
+
+  /**
+   * Records movements and applies them to the account balances in one update.
+   * Business rules (funds, limits) are the caller's job; see `assertFunds`.
+   */
+  record(movements: readonly NewMovement[]): Transaction[] {
+    const date = this.now().toISOString();
+    const id = `tx-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+    const recorded = movements.map((m, i) => ({ ...m, id: `${id}-${i}`, date }));
     this.state.update((s) => ({
-      transactions: [...s.transactions, ...movements],
+      transactions: [...s.transactions, ...recorded],
       accounts: s.accounts.map((a) => {
-        const delta = movements.filter((m) => m.accountId === a.id).reduce((sum, m) => sum + m.amount, 0);
+        const delta = recorded.filter((m) => m.accountId === a.id).reduce((sum, m) => sum + m.amount, 0);
         return delta === 0 ? a : { ...a, balance: round2(a.balance + delta) };
       }),
     }));
+    return recorded;
+  }
 
-    return { ...quote, id, date, toLabel };
+  /** Throws a player-facing error when the account cannot cover `amount`. */
+  assertFunds(accountId: string, amount: number): void {
+    const account = this.account(accountId);
+    if (!account) throw new BankError('La cuenta no existe.');
+    if (amount > account.balance) throw new BankError('No tienes saldo suficiente en esa cuenta.');
+  }
+
+  /** `amount` of `currency` in soles, or null when a USD amount needs the (still missing) rate. */
+  inPen(amount: number, currency: Currency): number | null {
+    if (currency === 'PEN') return amount;
+    const rate = this.usdToPen();
+    return rate === null ? null : round2(amount * rate);
   }
 
   /** Restores the demo data. */
@@ -182,7 +212,7 @@ export class BankStore {
     return this.account(accountId)?.currency ?? 'PEN';
   }
 
-  private toPen(amount: number, currency: Currency, rate: number): number {
+  private convert(amount: number, currency: Currency, rate: number): number {
     return currency === 'PEN' ? amount : amount * rate;
   }
 
