@@ -22,7 +22,7 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ### Landing
 
-- **Hero animado** con titular revelado palabra por palabra (GSAP SplitText) y tarjeta de producto con inclinación 3D que sigue al cursor.
+- **Hero animado** con titular que sube línea por línea desde una máscara (CSS) y tarjeta de producto con inclinación 3D que sigue al cursor (GSAP).
 - **Conversor PEN → USD** con tipo de cambio en vivo desde una API pública.
 - Bento grid de funciones, cifras animadas y secciones que aparecen con el scroll (Lenis).
 - Navegación móvil accesible: `aria-expanded`, cierre con <kbd>Esc</kbd> y retorno del foco.
@@ -32,7 +32,11 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 - **Resumen:** saldo total valorizado en soles, cuentas PEN y USD, nivel con barra de XP y cashback, límite mensual de gasto en juegos y últimos movimientos.
 - **Movimientos:** filtros por cuenta y categoría, búsqueda que ignora tildes y mayúsculas, agrupación por día y estado vacío con salida. La cuenta se puede preseleccionar desde la URL (`?cuenta=usd`).
 - **Transferir:** asistente en tres pasos (datos → confirmar → listo) entre cuentas propias, con conversión en vivo, o a tu squad. Valida saldo y destino, muestra errores junto a cada campo y un resumen enfocable al enviar.
+- **Tarjetas virtuales:** crea hasta tres tarjetas desechables con su propio tope, congélalas o elimínalas (con confirmación). Al simular una compra se aplican las reglas de verdad: tope de la tarjeta, límite mensual de juegos y saldo; cada compra suma XP, devuelve cashback según tu nivel y avisa si subiste de nivel.
+- **Squad:** paga una suscripción completa, divídela con tu squad y registra quién ya te devolvió su parte. El saldo "por cobrar" se actualiza solo.
 - **Simulador de préstamos:** cuota fija (sistema francés) con TEA que baja según tu nivel, gráfico de capital vs. interés por mes y cronograma completo en tabla.
+
+![Tarjetas virtuales: tarjeta con su tope, compra simulada y creación de tarjetas](docs/dashboard-cards.png)
 
 ![Simulador de préstamos con cuota mensual y gráfico de capital e interés](docs/dashboard-loans.png)
 
@@ -44,14 +48,15 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 | Formularios | Signal Forms (`@angular/forms/signals`) con validación por schema |
 | Renderizado | Prerender estático para las páginas públicas; render en el cliente para el panel |
 | Estilos | Tailwind CSS v4 con tokens de diseño en `@theme` |
-| Animación | GSAP 3 (ScrollTrigger, SplitText) + Lenis |
-| Tests | Vitest + GitHub Actions |
+| Animación | CSS para la intro del hero; GSAP 3 (ScrollTrigger) + Lenis para el resto |
+| Tests | Vitest (unitarios), Playwright + axe-core (end-to-end), GitHub Actions |
 | Deploy | Vercel |
 
 ## Decisiones técnicas
 
 - **Renderizado híbrido por ruta.** La landing y `/ingresar` se prerenderizan a HTML (se ven y se indexan sin JavaScript). El panel es privado y vive en el navegador, así que se renderiza solo en el cliente, detrás de un guard que recuerda a dónde ibas (`?volver=`) y rechaza destinos fuera de `/app`.
-- **Estado con signals.** Un store por dominio (`BankStore`) expone el estado con `signal`/`computed`, persiste en `localStorage` mediante un `effect` y tolera almacenamiento bloqueado o SSR. Las transferencias son asíncronas, con latencia simulada, para que la UI tenga estados de carga reales.
+- **Estado con signals, un store por dominio.** `BankStore` (cuentas y movimientos), `CardsStore` y `SquadStore` exponen su estado con `signal`/`computed` y persisten en `localStorage` mediante un `effect`, tolerando almacenamiento bloqueado o SSR. Las tarjetas y el squad no tocan los saldos directamente: registran movimientos a través de `BankStore.record()`, así el historial y los saldos nunca se desincronizan. Las operaciones son asíncronas, con latencia simulada, para que la UI tenga estados de carga reales.
+- **Errores de negocio en el campo.** Cuando una regla rechaza una operación (saldo, tope, límite de juegos), el `submit()` de Signal Forms devuelve el error al campo correspondiente y se muestra igual que cualquier validación.
 - **Lógica de negocio pura y testeada.** Amortización, tasas, niveles y formato de montos son funciones puras con sus tests; los componentes solo las muestran.
 - **Formularios accesibles.** Cada error se conecta a su campo con `aria-describedby`; si el envío falla aparece un resumen con enlaces a cada campo que recibe el foco. Al cambiar de página o de paso, el foco va al nuevo título.
 - **Gráfico sin librerías.** SVG propio con escala de ticks legibles, tooltip al pasar el mouse y resumen textual para lectores de pantalla. La tabla de cronograma es la vista alternativa. La paleta del gráfico se validó para daltonismo y contraste sobre el fondo oscuro.
@@ -61,8 +66,10 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ## Calidad
 
-- **28 tests** (Vitest): cálculo de préstamos, niveles, store de transferencias y persistencia, guard y redirección segura, asistente de transferencia y filtros de movimientos. Corren en CI en cada push.
-- **axe-core** (WCAG 2.2 AA + buenas prácticas): 0 violaciones en la landing, `/ingresar` y las cuatro páginas del panel.
+- **35 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, persistencia), guard y redirección segura, asistente de transferencia y filtros de movimientos.
+- **9 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, congelar y eliminar tarjeta, dividir y cobrar en el squad, simulador y navegación móvil. El tipo de cambio se simula para que sean deterministas.
+- **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing y las seis páginas del panel.
+- Todo corre en GitHub Actions en cada push.
 - **Lighthouse** sobre producción, landing:
 
 | | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
@@ -85,9 +92,9 @@ src/app/
     ├── landing/              # secciones y componentes de la landing
     ├── auth/                 # /ingresar
     └── dashboard/
-        ├── data/             # modelos, BankStore, préstamos, niveles (+ tests)
-        ├── shell/            # layout: barra lateral y navegación inferior
-        ├── overview/  movements/  transfer/  loans/
+        ├── data/             # modelos, BankStore, CardsStore, SquadStore, préstamos, niveles (+ tests)
+        ├── shell/            # layout: barra lateral y navegación inferior con "Más"
+        ├── overview/  movements/  transfer/  cards/  squad/  loans/
         └── ui/               # piezas compartidas del panel
 ```
 
@@ -100,14 +107,17 @@ npm ci
 npm start          # servidor de desarrollo en http://localhost:4200
 npm test           # tests unitarios
 npm run build      # build de producción + prerender en dist/lvl/browser
+npm run e2e        # tests end-to-end (después de npm run build)
 ```
+
+La primera vez que corras los e2e instala el navegador con `npx playwright install chromium`.
 
 Los datos del panel se guardan en tu navegador. Para volver al estado inicial usa **Reiniciar datos de demo** en la barra lateral.
 
 ## Próximos pasos
 
-- Tests end-to-end con Playwright para los flujos de ingreso y transferencia.
-- Pagos con tarjeta virtual desechable y división de suscripciones con el squad.
+- Backend real (por ejemplo Supabase) con autenticación, para que los datos sigan al usuario entre dispositivos.
+- Metas de ahorro y retos semanales que den XP extra.
 
 ## Autor
 
