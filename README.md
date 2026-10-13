@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml)
 
-Billetera digital ficticia para gamers en Perú: una landing animada y un panel bancario de demo con cuentas en soles y dólares, transferencias con tipo de cambio en vivo y un simulador de préstamos que premia tu nivel.
+Billetera digital ficticia para gamers en Perú: una landing animada y un panel bancario de demo con cuentas en soles y dólares, transferencias con tipo de cambio en vivo, tarjetas virtuales, ofertas que se desbloquean por nivel, misiones semanales, cofres de ahorro y un simulador de préstamos que premia tu nivel.
 
 **Demo en vivo → [lvl-wallet.vercel.app](https://lvl-wallet.vercel.app)** · Para el panel, entra en [/ingresar](https://lvl-wallet.vercel.app/ingresar) con cualquier gamertag (no hay contraseñas ni datos reales).
 
@@ -40,6 +40,8 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 - **Simulador de préstamos:** cuota fija (sistema francés) con TEA que baja según tu nivel, gráfico de capital vs. interés por mes y cronograma completo en tabla.
 
 ![Tarjetas virtuales: tarjeta con su tope, compra simulada y creación de tarjetas](docs/dashboard-cards.png)
+
+![Botín de aliados: ofertas por nivel con vencimiento, activas y bloqueadas](docs/dashboard-offers.png)
 
 ![Simulador de préstamos con cuota mensual y gráfico de capital e interés](docs/dashboard-loans.png)
 

@@ -11,8 +11,8 @@ import { Component } from '@angular/core';
         <span class="font-display font-bold text-fg">LVL</span>
         <span>Proyecto de portafolio · marca ficticia · Lima, Perú</span>
         <nav aria-label="Pie de página" class="flex gap-6">
-          <a href="https://github.com/Fufexo" target="_blank" rel="noopener noreferrer" class="text-dim no-underline hover:text-fg">
-            GitHub<span class="sr-only"> (se abre en una pestaña nueva)</span>
+          <a href="https://github.com/Fufexo/lvl-wallet" target="_blank" rel="noopener noreferrer" class="text-dim no-underline hover:text-fg">
+            Código en GitHub<span class="sr-only"> (se abre en una pestaña nueva)</span>
           </a>
           <a href="#inicio" class="text-dim no-underline hover:text-fg">Volver arriba</a>
         </nav>
