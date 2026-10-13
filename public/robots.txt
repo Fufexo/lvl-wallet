@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lvl-wallet.vercel.app/sitemap.xml
