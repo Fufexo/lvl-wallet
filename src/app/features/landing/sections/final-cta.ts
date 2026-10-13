@@ -2,11 +2,11 @@ import { Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
 import { Reveal } from '../../../core/motion/reveal';
-import { ButtonLink } from '../../../shared/ui/button-link';
+import { Button } from '../../../shared/ui/button';
 
 @Component({
   selector: 'app-final-cta',
-  imports: [Reveal, ButtonLink, RouterLink],
+  imports: [Reveal, Button, RouterLink],
   host: { class: 'block' },
   template: `
     <section id="unete" class="relative z-10 pt-8 pb-24">

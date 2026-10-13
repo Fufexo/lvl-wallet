@@ -1,11 +1,11 @@
 import { Component, signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 
-import { ButtonLink } from './button-link';
+import { Button } from './button';
 import { ProgressBar } from './progress-bar';
 
 @Component({
-  imports: [ProgressBar, ButtonLink],
+  imports: [ProgressBar, Button],
   template: `
     <app-progress-bar label="Gasto" [value]="value()" [max]="200" valueText="S/ 140 de S/ 200" />
     <a appButton="glass" size="lg" href="#x" class="extra">Ir</a>

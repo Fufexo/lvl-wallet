@@ -1,14 +1,14 @@
 import { Component, DestroyRef, ElementRef, afterNextRender, inject, viewChild } from '@angular/core';
 
 import { hasFinePointer, prefersReducedMotion, useGsap } from '../../../core/motion/gsap';
-import { ButtonLink } from '../../../shared/ui/button-link';
+import { Button } from '../../../shared/ui/button';
 import { Icon } from '../../../shared/ui/icon';
 import { FxRateChip } from '../components/fx-rate-chip';
 import { Movement, WalletCard } from '../components/wallet-card';
 
 @Component({
   selector: 'app-hero',
-  imports: [ButtonLink, Icon, FxRateChip, WalletCard],
+  imports: [Button, Icon, FxRateChip, WalletCard],
   host: { class: 'block' },
   template: `
     <section id="inicio" #root data-hero-root class="relative z-10 pt-20 pb-20 sm:pt-28">

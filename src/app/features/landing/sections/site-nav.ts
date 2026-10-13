@@ -1,12 +1,12 @@
 import { Component, ElementRef, signal, viewChild } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
-import { ButtonLink } from '../../../shared/ui/button-link';
+import { Button } from '../../../shared/ui/button';
 import { Icon } from '../../../shared/ui/icon';
 
 @Component({
   selector: 'app-site-nav',
-  imports: [ButtonLink, Icon, RouterLink],
+  imports: [Button, Icon, RouterLink],
   host: {
     class: 'sticky top-4 z-50 block px-4 sm:px-6 lg:px-12',
     '(document:keydown.escape)': 'onEscape()',

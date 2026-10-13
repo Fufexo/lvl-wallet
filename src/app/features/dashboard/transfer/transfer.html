@@ -1,0 +1,195 @@
+<header class="flex flex-col gap-2">
+  <span class="eyebrow text-xs text-lime">Mover dinero</span>
+  <h1 tabindex="-1" class="m-0 font-display text-[clamp(28px,4vw,44px)] leading-none font-bold tracking-[-0.02em] outline-none">
+    Transferir
+  </h1>
+</header>
+
+<ol aria-label="Pasos de la transferencia" class="m-0 grid list-none grid-cols-3 gap-2 p-0">
+  @for (s of steps; track s.id; let i = $index) {
+    <li
+      [attr.aria-current]="step() === s.id ? 'step' : null"
+      class="flex flex-col gap-2 text-sm"
+      [class]="i <= stepIndex() ? 'text-fg' : 'text-subtle'"
+    >
+      <span class="h-1.5 rounded-full" [class]="i <= stepIndex() ? 'bg-lime' : 'bg-white/10'"></span>
+      <span><span class="sr-only">Paso {{ i + 1 }} de 3: </span>{{ s.label }}</span>
+    </li>
+  }
+</ol>
+
+@switch (step()) {
+  @case ('form') {
+    <form [formRoot]="transfer" class="glass flex flex-col gap-6 rounded-card p-6 sm:p-8">
+      <h2 #stepHeading tabindex="-1" class="m-0 font-display text-xl font-bold outline-none">¿Cuánto y a quién?</h2>
+
+      @if (showSummary() && summary().length) {
+        <div #summaryBox role="alert" tabindex="-1" aria-labelledby="summary-title" class="rounded-panel border border-ember/40 bg-ember/10 p-4 outline-none">
+          <p id="summary-title" class="m-0 mb-2 flex items-center gap-2 font-semibold text-ember">
+            <app-icon name="alert" class="size-4.5" /> Revisa estos datos
+          </p>
+          <ul class="m-0 flex list-none flex-col gap-1 p-0 text-sm">
+            @for (e of summary(); track e.id) {
+              <li><a [href]="'#' + e.id" class="text-fg underline underline-offset-2" (click)="focusField($event, e.id)">{{ e.message }}</a></li>
+            }
+          </ul>
+        </div>
+      }
+
+      <div>
+        <label for="from" class="mb-2 block font-medium">Desde</label>
+        <app-select inputId="from" label="Desde" [options]="bank.accountOptions()" [formField]="transfer.from" />
+      </div>
+
+      <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
+        <legend class="mb-2 p-0 font-medium">Para</legend>
+        <div class="panel grid grid-cols-2 gap-1 rounded-full p-1">
+          @for (k of kinds; track k.id) {
+            <label
+              class="flex min-h-11 cursor-pointer items-center justify-center rounded-full text-sm transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lime"
+              [class]="model().toKind === k.id ? 'bg-lime font-semibold text-ink' : 'text-dim hover:text-fg'"
+            >
+              <input type="radio" name="toKind" class="sr-only" [value]="k.id" [checked]="model().toKind === k.id" (change)="setKind(k.id)" />
+              {{ k.label }}
+            </label>
+          }
+        </div>
+
+        @if (model().toKind === 'account') {
+          <label for="to" class="sr-only">Cuenta de destino</label>
+          <app-select inputId="to" label="Cuenta de destino" [options]="destinationOptions()" [formField]="transfer.to" placeholder="Elige una cuenta" describedBy="to-error" />
+        } @else {
+          <div id="to" tabindex="-1" role="radiogroup" aria-label="Integrante de tu squad" aria-describedby="to-error" class="grid gap-2 outline-none sm:grid-cols-3">
+            @for (c of bank.contacts; track c.id) {
+              <label
+                class="panel flex min-h-14 cursor-pointer items-center gap-3 rounded-panel px-4 transition-colors has-[:checked]:border-lime/60 has-[:checked]:bg-lime/8 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-lime"
+              >
+                <input type="radio" name="contact" class="sr-only" [value]="c.id" [checked]="model().to === c.id" (change)="setTo(c.id)" />
+                <span aria-hidden="true" class="size-8 flex-none rounded-full" [class]="toneClass[c.tone]"></span>
+                <span class="flex min-w-0 flex-col">
+                  <span class="font-medium">{{ c.name }}</span>
+                  <span class="truncate font-mono text-xs text-subtle">{{ c.handle }}</span>
+                </span>
+              </label>
+            }
+          </div>
+        }
+        <app-field-error id="to-error" [state]="transfer.to()" />
+      </fieldset>
+
+      <div>
+        <label for="amount" class="mb-2 block font-medium">Monto</label>
+        <div class="panel flex min-h-14 items-center gap-2 rounded-panel px-4 font-mono text-xl font-bold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lime">
+          <span aria-hidden="true" class="text-subtle">{{ fromSymbol() }}</span>
+          <input
+            id="amount"
+            type="number"
+            inputmode="decimal"
+            step="0.01"
+            placeholder="0.00"
+            aria-describedby="amount-preview amount-error"
+            class="w-full min-w-0 bg-transparent text-fg outline-none placeholder:text-faint [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            [formField]="transfer.amount"
+            [attr.aria-invalid]="transfer.amount().touched() && transfer.amount().invalid()"
+          />
+        </div>
+        <p id="amount-preview" class="m-0 mt-2 text-sm text-subtle" aria-live="polite">
+          @if (quote(); as q) {
+            @if (q.rate) {
+              Llegan {{ q.credit | money: q.creditCurrency }} · US$ 1 = S/ {{ q.rate | number: '1.3-3' }}
+            } @else {
+              Disponible: {{ fromAccount()?.balance ?? 0 | money: q.debitCurrency }}
+            }
+          } @else if (needsRate() && bank.usdToPen() === null) {
+            Esperando el tipo de cambio en vivo…
+          } @else {
+            Disponible: {{ fromAccount()?.balance ?? 0 | money: fromAccount()?.currency ?? 'PEN' }}
+          }
+        </p>
+        <app-field-error id="amount-error" [state]="transfer.amount()" />
+      </div>
+
+      <div>
+        <label for="note" class="mb-2 block font-medium">Mensaje <span class="font-normal text-subtle">(opcional)</span></label>
+        <input id="note" type="text" aria-describedby="note-error" placeholder="ej. pizza del viernes" class="field" [formField]="transfer.note" />
+        <app-field-error id="note-error" [state]="transfer.note()" />
+      </div>
+
+      <button type="submit" appButton size="lg">
+        Revisar transferencia
+        <app-icon name="arrow-right" class="size-4.5" [strokeWidth]="2.2" />
+      </button>
+    </form>
+  }
+
+  @case ('confirm') {
+    <section class="glass flex flex-col gap-6 rounded-card p-6 sm:p-8" aria-labelledby="confirm-title">
+      <h2 #stepHeading id="confirm-title" tabindex="-1" class="m-0 font-display text-xl font-bold outline-none">Confirma los datos</h2>
+
+      @if (quote(); as q) {
+        <dl class="m-0 grid gap-4 sm:grid-cols-2">
+          <div class="panel flex flex-col gap-1 rounded-panel p-4">
+            <dt class="text-sm text-label">Sale de</dt>
+            <dd class="m-0 font-medium">{{ fromAccount()?.name }}</dd>
+            <dd class="m-0 font-mono text-2xl font-bold">{{ q.debit | money: q.debitCurrency }}</dd>
+          </div>
+          <div class="flex flex-col gap-1 rounded-panel border border-lime/25 bg-lime/7 p-4">
+            <dt class="text-sm text-label">Llega a</dt>
+            <dd class="m-0 font-medium">{{ toTitle() }}</dd>
+            <dd class="m-0 font-mono text-2xl font-bold text-lime">{{ q.credit | money: q.creditCurrency }}</dd>
+          </div>
+          @if (q.rate) {
+            <div class="sm:col-span-2">
+              <dt class="text-sm text-label">Tipo de cambio</dt>
+              <dd class="m-0 font-mono">US$ 1 = S/ {{ q.rate | number: '1.3-3' }}</dd>
+            </div>
+          }
+          @if (model().note.trim()) {
+            <div class="sm:col-span-2">
+              <dt class="text-sm text-label">Mensaje</dt>
+              <dd class="m-0">{{ model().note }}</dd>
+            </div>
+          }
+        </dl>
+      }
+
+      @if (error(); as message) {
+        <p role="alert" class="m-0 flex items-start gap-2 rounded-panel border border-ember/40 bg-ember/10 p-4 text-sm">
+          <app-icon name="alert" class="mt-0.5 size-4.5 text-ember" /> {{ message }}
+        </p>
+      }
+
+      <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <button type="button" [disabled]="pending()" appButton="glass" size="lg" (click)="edit()">Editar datos</button>
+        <button type="button" [disabled]="pending()" [attr.aria-busy]="pending()" appButton size="lg" (click)="send()">
+          @if (pending()) {
+            <span aria-hidden="true" class="size-4 animate-spin rounded-full border-2 border-ink/30 border-t-ink"></span>
+            Enviando…
+          } @else {
+            Confirmar y enviar
+          }
+        </button>
+      </div>
+    </section>
+  }
+
+  @case ('done') {
+    @if (receipt(); as r) {
+      <section class="glass flex flex-col items-center gap-5 rounded-card p-8 text-center" aria-labelledby="done-title">
+        <span class="grid size-16 place-items-center rounded-full bg-lime text-ink shadow-glow-lime">
+          <app-icon name="check" class="size-8" [strokeWidth]="2.6" />
+        </span>
+        <h2 #stepHeading id="done-title" tabindex="-1" class="m-0 font-display text-2xl font-bold outline-none">¡Transferencia enviada!</h2>
+        <p class="m-0 max-w-100 text-muted">
+          Enviaste {{ r.debit | money: r.debitCurrency }} a {{ r.toLabel }}{{ r.rate ? ' y llegaron ' + (r.credit | money: r.creditCurrency) : '' }}.
+          Tu nuevo saldo es {{ fromAccount()?.balance ?? 0 | money: r.debitCurrency }}.
+        </p>
+        <p class="m-0 font-mono text-xs text-subtle">Operación {{ r.id }}</p>
+        <div class="flex flex-wrap justify-center gap-3">
+          <button type="button" appButton size="lg" (click)="restart()">Hacer otra transferencia</button>
+          <a appButton="glass" routerLink="/app/movimientos" size="lg">Ver movimientos</a>
+        </div>
+      </section>
+    }
+  }
+}

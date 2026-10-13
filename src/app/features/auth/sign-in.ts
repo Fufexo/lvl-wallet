@@ -3,7 +3,7 @@ import { Router, RouterLink } from '@angular/router';
 import { FormField, FormRoot, form, maxLength, minLength, pattern, required } from '@angular/forms/signals';
 
 import { Session } from '../../core/session';
-import { ButtonLink } from '../../shared/ui/button-link';
+import { Button } from '../../shared/ui/button';
 import { FieldError } from '../../shared/ui/field-error';
 import { Icon } from '../../shared/ui/icon';
 
@@ -14,7 +14,7 @@ export function safeReturn(url: string | undefined): string {
 
 @Component({
   selector: 'app-sign-in',
-  imports: [ButtonLink, FieldError, FormField, FormRoot, Icon, RouterLink],
+  imports: [Button, FieldError, FormField, FormRoot, Icon, RouterLink],
   host: { class: 'relative block min-h-dvh overflow-x-clip bg-ink text-fg' },
   template: `
     <div aria-hidden="true" class="pointer-events-none absolute inset-0 overflow-hidden">

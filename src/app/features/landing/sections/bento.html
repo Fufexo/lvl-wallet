@@ -1,0 +1,97 @@
+<section id="funciones" class="relative z-10 pt-16 pb-28">
+  <div class="page-container flex flex-col gap-12">
+    <header appReveal class="flex flex-wrap items-end justify-between gap-6">
+      <h2 class="m-0 max-w-180 font-display text-[clamp(34px,4.6vw,64px)] leading-none font-bold tracking-[-0.03em]">
+        Todo tu loot<br />en un solo inventario.
+      </h2>
+      <p class="m-0 max-w-90 text-muted">
+        Una cuenta para comprar, ahorrar y compartir gastos con tu squad, sin cambiar de app.
+      </p>
+    </header>
+
+    <div
+      appReveal="children"
+      class="grid auto-rows-[minmax(220px,auto)] grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      <!-- 01 · Multi-moneda (interactive converter) -->
+      <article class="glass flex flex-col justify-between gap-7 rounded-card p-8 sm:col-span-2 lg:row-span-2">
+        <div class="flex flex-col gap-3">
+          <span class="eyebrow text-xs text-lime">01 · Multi-moneda</span>
+          <h3 class="m-0 font-display text-[30px] leading-[1.1] font-bold">
+            Soles y dólares,<br />sin pelearte con el banco.
+          </h3>
+          <p class="m-0 max-w-105 text-muted">
+            Cambia al instante con tipo de cambio en vivo y paga en la moneda de cada tienda.
+          </p>
+        </div>
+        <app-fx-converter />
+      </article>
+
+      <!-- 02 · XP y cashback -->
+      <article class="glass flex flex-col gap-5 rounded-card p-8 sm:col-span-2">
+        <span class="eyebrow text-xs text-lilac">02 · XP y cashback</span>
+        <h3 class="m-0 font-display text-2xl leading-[1.15] font-bold">Gastar también es farmear.</h3>
+        <div class="flex h-24 items-end gap-2.5" aria-hidden="true">
+          @for (bar of xpBars; track $index) {
+            <div class="flex-1 rounded-lg" [class]="bar.class" [style.height.%]="bar.height"></div>
+          }
+        </div>
+        <p class="m-0 text-muted">Cada sol suma XP. Subes de nivel y tu cashback crece del 1% al 5%.</p>
+      </article>
+
+      <!-- Gift cards -->
+      <article class="glass flex flex-col gap-4 rounded-card p-7">
+        <span class="grid size-12 place-items-center rounded-[14px] bg-lime/14 text-lime">
+          <app-icon name="gift" class="size-6" />
+        </span>
+        <h3 class="m-0 font-display text-xl font-bold">Gift cards al toque</h3>
+        <p class="m-0 text-[15px] text-muted">Códigos digitales entregados en segundos, directo a tu inventario.</p>
+      </article>
+
+      <!-- Modo squad -->
+      <article class="glass flex flex-col gap-4 rounded-card p-7">
+        <div aria-hidden="true" class="flex">
+          <span class="size-10 rounded-full border-2 border-ink-2 bg-violet"></span>
+          <span class="-ml-3 size-10 rounded-full border-2 border-ink-2 bg-lime"></span>
+          <span class="-ml-3 size-10 rounded-full border-2 border-ink-2 bg-ember"></span>
+          <span class="-ml-3 grid size-10 place-items-center rounded-full border-2 border-ink-2 bg-ink-3 text-[13px] text-soft">+1</span>
+        </div>
+        <h3 class="m-0 font-display text-xl font-bold">Modo squad</h3>
+        <p class="m-0 text-[15px] text-muted">Divide suscripciones y cobra automático a tus amigos cada mes.</p>
+      </article>
+
+      <!-- 03 · Límites -->
+      <article class="glass flex flex-wrap items-center justify-between gap-6 rounded-card px-8 py-7 sm:col-span-2">
+        <div class="flex max-w-90 flex-col gap-2.5">
+          <span class="eyebrow text-xs text-lime">03 · Límites inteligentes</span>
+          <h3 class="m-0 font-display text-[22px] leading-[1.15] font-bold">Ponle tope a las microtransacciones.</h3>
+        </div>
+        <div class="flex flex-[1_1_220px] flex-col gap-2.5">
+          <div class="flex justify-between text-sm">
+            <span class="text-muted">Gasto en juegos · este mes</span>
+            <span class="font-mono">S/ {{ spent() }} / {{ limit() }}</span>
+          </div>
+          <app-progress-bar
+            class="h-3"
+            label="Gasto del límite mensual"
+            fillClass="bg-ember"
+            [value]="spent()"
+            [max]="limit()"
+            [valueText]="'S/ ' + spent() + ' de S/ ' + limit()"
+          />
+        </div>
+      </article>
+
+      <!-- Tarjeta virtual -->
+      <article class="glass flex items-center gap-5 rounded-card px-8 py-7 sm:col-span-2">
+        <span class="grid size-14 flex-none place-items-center rounded-2xl bg-violet/18 text-lilac">
+          <app-icon name="shield-check" class="size-6.5" />
+        </span>
+        <div>
+          <h3 class="m-0 mb-1.5 font-display text-xl font-bold">Tarjeta virtual desechable</h3>
+          <p class="m-0 text-[15px] text-muted">Úsala en una tienda nueva y bórrala después. Tu cuenta principal nunca se expone.</p>
+        </div>
+      </article>
+    </div>
+  </div>
+</section>
