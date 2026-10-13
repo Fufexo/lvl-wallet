@@ -74,7 +74,7 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 | | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
 |---|:---:|:---:|:---:|:---:|
-| Móvil | 85–87 | 100 | 100 | 100 |
+| Móvil | 88 | 100 | 100 | 100 |
 | Escritorio | 100 | 100 | 100 | 100 |
 
 ## Estructura
