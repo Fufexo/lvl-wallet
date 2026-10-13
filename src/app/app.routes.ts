@@ -1,5 +1,7 @@
 import { Routes } from '@angular/router';
 
+import { requireSession } from './core/session';
+
 export const routes: Routes = [
   {
     path: '',
@@ -7,9 +9,14 @@ export const routes: Routes = [
     loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
   },
   {
+    path: 'ingresar',
+    title: 'Ingresar — LVL',
+    loadComponent: () => import('./features/auth/sign-in').then((m) => m.SignIn),
+  },
+  {
     path: 'app',
-    title: 'Panel en construcción — LVL',
-    loadComponent: () => import('./features/app-preview/app-preview').then((m) => m.AppPreview),
+    canActivate: [requireSession],
+    loadChildren: () => import('./features/dashboard/dashboard.routes').then((m) => m.DASHBOARD_ROUTES),
   },
   { path: '**', redirectTo: '' },
 ];

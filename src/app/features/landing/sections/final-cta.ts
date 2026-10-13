@@ -29,7 +29,7 @@ import { ButtonLink } from '../../../shared/ui/button-link';
           </p>
           <a
             appButton
-            routerLink="/app"
+            routerLink="/ingresar"
             size="xl"
             class="relative shadow-[0_0_50px_rgb(198_255_61/0.45)] hover:scale-[1.03]"
           >

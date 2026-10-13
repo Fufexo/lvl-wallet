@@ -1,0 +1,191 @@
+import { Component, computed, inject, signal } from '@angular/core';
+import { DecimalPipe, PercentPipe } from '@angular/common';
+import { FormField, form, max, min, required } from '@angular/forms/signals';
+
+import { FieldError } from '../../../shared/ui/field-error';
+import { MoneyPipe } from '../../../shared/ui/money';
+import { BankStore } from '../data/bank-store';
+import { amortize, annualRateForLevel } from '../data/loan';
+import { AmortizationChart } from './amortization-chart';
+
+interface LoanModel {
+  amount: number | null;
+  months: string;
+}
+
+const MIN_AMOUNT = 500;
+const MAX_AMOUNT = 30_000;
+
+@Component({
+  selector: 'app-loan-simulator',
+  imports: [AmortizationChart, DecimalPipe, FieldError, FormField, MoneyPipe, PercentPipe],
+  host: { class: 'flex flex-col gap-6' },
+  template: `
+    <header class="flex flex-col gap-2">
+      <span class="eyebrow text-xs text-lime">Crédito</span>
+      <h1 tabindex="-1" class="m-0 font-display text-[clamp(28px,4vw,44px)] leading-none font-bold tracking-[-0.02em] outline-none">
+        Simulador de préstamos
+      </h1>
+      <p class="m-0 max-w-150 text-muted">
+        Calcula tu cuota fija mensual (sistema francés) y mira cuánto de cada pago va a capital y
+        cuánto a interés.
+      </p>
+    </header>
+
+    <div class="grid gap-4 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+      <!-- Inputs -->
+      <section aria-labelledby="inputs-title" class="glass flex flex-col gap-6 rounded-card p-6 sm:p-7">
+        <h2 id="inputs-title" class="m-0 font-display text-xl font-bold">Tu préstamo</h2>
+
+        <div>
+          <label for="loan-amount" class="mb-2 block font-medium">Monto</label>
+          <div class="panel flex min-h-14 items-center gap-2 rounded-panel px-4 font-mono text-xl font-bold focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-lime">
+            <span aria-hidden="true" class="text-subtle">S/</span>
+            <input
+              id="loan-amount"
+              type="number"
+              inputmode="decimal"
+              step="100"
+              aria-describedby="loan-amount-hint loan-amount-error"
+              class="w-full min-w-0 bg-transparent text-fg outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+              [formField]="loan.amount"
+              [attr.aria-invalid]="loan.amount().invalid()"
+            />
+          </div>
+          <p id="loan-amount-hint" class="m-0 mt-2 text-sm text-subtle">Entre {{ minAmount | money: 'PEN' }} y {{ maxAmount | money: 'PEN' }}.</p>
+          <app-field-error id="loan-amount-error" [state]="amountErrors()" />
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Montos sugeridos">
+            @for (preset of presets; track preset) {
+              <button
+                type="button"
+                class="min-h-11 rounded-full border px-4 font-mono text-sm transition-colors"
+                [class]="model().amount === preset ? 'border-lime/60 bg-lime/10 text-lime' : 'border-white/12 text-dim hover:text-fg'"
+                [attr.aria-pressed]="model().amount === preset"
+                (click)="setAmount(preset)"
+              >
+                {{ preset | money: 'PEN' }}
+              </button>
+            }
+          </div>
+        </div>
+
+        <div>
+          <label for="loan-months" class="mb-2 block font-medium">Plazo</label>
+          <select
+            id="loan-months"
+            class="panel min-h-12 w-full rounded-panel bg-ink-2 px-4 text-fg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
+            [formField]="loan.months"
+          >
+            @for (m of terms; track m) {
+              <option [value]="m">{{ m }} meses</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1 rounded-panel border border-violet/30 bg-violet/10 p-4">
+          <p class="m-0 text-sm text-label">Tu tasa por ser nivel {{ level() }}</p>
+          <p class="m-0 font-mono text-2xl font-bold text-lilac">TEA {{ annualRate() | percent: '1.2-2' }}</p>
+          <p class="m-0 text-[13px] text-muted">Cada nivel baja la tasa 0.5 puntos, hasta un mínimo de 18%.</p>
+        </div>
+      </section>
+
+      <!-- Results -->
+      <section aria-labelledby="result-title" aria-live="polite" class="glass flex flex-col gap-5 rounded-card p-6 sm:p-7">
+        <h2 id="result-title" class="m-0 font-display text-xl font-bold">Resultado</h2>
+        @if (result(); as r) {
+          <div>
+            <p class="m-0 text-sm text-label">Cuota mensual</p>
+            <p class="m-0 font-mono text-[clamp(36px,5vw,52px)] font-bold tracking-[-0.02em] text-lime">{{ r.payment | money: 'PEN' }}</p>
+            <p class="m-0 text-[13px] text-subtle">por {{ r.rows.length }} meses · TEM {{ r.monthlyRate | percent: '1.3-3' }}</p>
+          </div>
+          <dl class="m-0 grid grid-cols-2 gap-3">
+            <div class="panel rounded-panel p-4">
+              <dt class="text-sm text-label">Total de intereses</dt>
+              <dd class="m-0 font-mono text-lg font-bold">{{ r.totalInterest | money: 'PEN' }}</dd>
+            </div>
+            <div class="panel rounded-panel p-4">
+              <dt class="text-sm text-label">Total a pagar</dt>
+              <dd class="m-0 font-mono text-lg font-bold">{{ r.totalPaid | money: 'PEN' }}</dd>
+            </div>
+          </dl>
+          <app-amortization-chart [rows]="r.rows" />
+        } @else {
+          <p class="m-0 text-muted">Ingresa un monto válido para ver tu cuota.</p>
+        }
+      </section>
+    </div>
+
+    @if (result(); as r) {
+      <details class="glass group rounded-card">
+        <summary class="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 rounded-card px-6 font-semibold sm:px-7 [&::-webkit-details-marker]:hidden">
+          Ver cronograma de pagos
+          <span aria-hidden="true" class="text-lime transition-transform group-open:rotate-90">›</span>
+        </summary>
+        <div class="overflow-x-auto px-2 pb-4 sm:px-4" role="region" aria-label="Cronograma de pagos" tabindex="0">
+          <table class="w-full min-w-[560px] border-collapse text-right font-mono text-sm">
+            <caption class="sr-only">Cronograma de {{ r.rows.length }} cuotas en soles</caption>
+            <thead>
+              <tr class="text-label">
+                <th scope="col" class="px-3 py-2 text-left font-sans font-medium">Mes</th>
+                <th scope="col" class="px-3 py-2 font-sans font-medium">Cuota</th>
+                <th scope="col" class="px-3 py-2 font-sans font-medium">Capital</th>
+                <th scope="col" class="px-3 py-2 font-sans font-medium">Interés</th>
+                <th scope="col" class="px-3 py-2 font-sans font-medium">Saldo</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (row of r.rows; track row.month) {
+                <tr class="border-t border-white/6">
+                  <th scope="row" class="px-3 py-2 text-left font-normal">{{ row.month }}</th>
+                  <td class="px-3 py-2">{{ row.payment | number: '1.2-2' }}</td>
+                  <td class="px-3 py-2">{{ row.principal | number: '1.2-2' }}</td>
+                  <td class="px-3 py-2">{{ row.interest | number: '1.2-2' }}</td>
+                  <td class="px-3 py-2">{{ row.balance | number: '1.2-2' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </details>
+    }
+
+    <p class="m-0 text-[13px] text-subtle">
+      Simulación referencial de un producto ficticio, sin comisiones ni seguros. No es una oferta de crédito.
+    </p>
+  `,
+})
+export class LoanSimulator {
+  private readonly bank = inject(BankStore);
+
+  protected readonly minAmount = MIN_AMOUNT;
+  protected readonly maxAmount = MAX_AMOUNT;
+  protected readonly presets = [2000, 5000, 10000] as const;
+  protected readonly terms = ['6', '12', '18', '24', '36', '48'] as const;
+
+  protected readonly model = signal<LoanModel>({ amount: 5000, months: '24' });
+  protected readonly loan = form(this.model, (p) => {
+    required(p.amount, { message: 'Escribe cuánto necesitas.' });
+    min(p.amount, MIN_AMOUNT, { message: `El monto mínimo es S/ ${MIN_AMOUNT}.` });
+    max(p.amount, MAX_AMOUNT, { message: 'El monto máximo es S/ 30,000.' });
+  });
+
+  /** Errors show while typing here: results update live, so stale input must be explained at once. */
+  protected readonly amountErrors = computed(() => ({
+    touched: () => true,
+    invalid: () => this.loan.amount().invalid(),
+    errors: () => this.loan.amount().errors(),
+  }));
+
+  protected readonly level = computed(() => this.bank.progress().level);
+  protected readonly annualRate = computed(() => annualRateForLevel(this.level()));
+
+  protected readonly result = computed(() => {
+    const amount = this.model().amount;
+    if (amount === null || this.loan.amount().invalid()) return null;
+    return amortize(amount, this.annualRate(), Number(this.model().months));
+  });
+
+  protected setAmount(amount: number): void {
+    this.model.update((m) => ({ ...m, amount }));
+  }
+}

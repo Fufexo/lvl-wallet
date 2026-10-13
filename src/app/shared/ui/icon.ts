@@ -13,7 +13,19 @@ export type IconName =
   | 'freeze'
   | 'menu'
   | 'close'
-  | 'arrow-left';
+  | 'arrow-left'
+  | 'home'
+  | 'list'
+  | 'send'
+  | 'calculator'
+  | 'logout'
+  | 'refresh'
+  | 'search'
+  | 'check'
+  | 'alert'
+  | 'wallet'
+  | 'coins'
+  | 'chevron-right';
 
 /**
  * Decorative stroke icon on a 24×24 grid. Size and color come from the host classes,
@@ -56,6 +68,27 @@ export type IconName =
         @case ('menu') { <path d="M4 7h16M4 12h16M4 17h16" /> }
         @case ('close') { <path d="M6 6l12 12M18 6 6 18" /> }
         @case ('arrow-left') { <path d="M19 12H5" /><path d="m11 18-6-6 6-6" /> }
+        @case ('home') { <path d="M3 11 12 4l9 7" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" /> }
+        @case ('list') { <path d="M9 6h11M9 12h11M9 18h11" /><path d="M4 6h.01M4 12h.01M4 18h.01" /> }
+        @case ('send') { <path d="M21 3 10 14" /><path d="m21 3-7 18-4-7-7-4z" /> }
+        @case ('calculator') {
+          <rect x="5" y="3" width="14" height="18" rx="2" /><path d="M8 7h8" />
+          <path d="M8 12h.01M12 12h.01M16 12h.01M8 16h.01M12 16h.01M16 16h.01" />
+        }
+        @case ('logout') { <path d="M15 4h4v16h-4" /><path d="M10 8l-4 4 4 4" /><path d="M6 12h10" /> }
+        @case ('refresh') { <path d="M20 11a8 8 0 1 0-2.3 5.7" /><path d="M20 4v7h-7" /> }
+        @case ('search') { <circle cx="11" cy="11" r="7" /><path d="m20 20-4-4" /> }
+        @case ('check') { <path d="m5 12 5 5 9-10" /> }
+        @case ('alert') { <circle cx="12" cy="12" r="9" /><path d="M12 7v6" /><path d="M12 16.5h.01" /> }
+        @case ('wallet') {
+          <path d="M4 7h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a1 1 0 0 1-1-1z" /><path d="M4 7l11-3v3" />
+          <path d="M16 13.5h.01" />
+        }
+        @case ('coins') {
+          <ellipse cx="9" cy="7" rx="5" ry="2.5" /><path d="M4 7v4c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5V7" />
+          <path d="M10 15.5c.6 1.2 2.6 2 5 2 2.8 0 5-1.1 5-2.5v-4c0-1.4-2.2-2.5-5-2.5" />
+        }
+        @case ('chevron-right') { <path d="m9 6 6 6-6 6" /> }
       }
     </svg>
   `,

@@ -20,6 +20,10 @@
   --color-lilac: #cdb2ff;
   --color-ember: #ff8a3d;
 
+  /* Chart series, validated for CVD separation and lightness on the dark surface. */
+  --color-chart-principal: #79a618;
+  --color-chart-interest: #8b4dff;
+
   --font-display: "Unbounded", system-ui, sans-serif;
   --font-sans: "Geist", system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;

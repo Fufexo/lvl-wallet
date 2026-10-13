@@ -1,0 +1,177 @@
+import { Component, computed, inject } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { RouterLink } from '@angular/router';
+
+import { NOW } from '../../../core/clock';
+import { Session } from '../../../core/session';
+import { ButtonLink } from '../../../shared/ui/button-link';
+import { Icon } from '../../../shared/ui/icon';
+import { MoneyPipe } from '../../../shared/ui/money';
+import { ProgressBar } from '../../../shared/ui/progress-bar';
+import { BankStore } from '../data/bank-store';
+import { dayLabel } from '../data/dates';
+import { TransactionRow } from '../ui/transaction-row';
+
+@Component({
+  selector: 'app-overview',
+  imports: [ButtonLink, DecimalPipe, Icon, MoneyPipe, ProgressBar, RouterLink, TransactionRow],
+  host: { class: 'flex flex-col gap-8' },
+  template: `
+    <header class="flex flex-wrap items-end justify-between gap-4">
+      <div class="flex flex-col gap-2">
+        <span class="eyebrow text-xs text-lime">Resumen</span>
+        <h1 tabindex="-1" class="m-0 font-display text-[clamp(28px,4vw,44px)] leading-none font-bold tracking-[-0.02em] outline-none">
+          Hola, {{ session.gamertag() }}
+        </h1>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        <a appButton routerLink="/app/transferir">
+          <app-icon name="send" class="size-4.5" />
+          Transferir
+        </a>
+        <a appButton="glass" routerLink="/app/prestamos">
+          <app-icon name="calculator" class="size-4.5" />
+          Simular préstamo
+        </a>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <!-- Balance -->
+      <section aria-labelledby="balance-title" class="glass flex flex-col gap-6 rounded-card p-7 lg:col-span-2">
+        <div class="flex flex-col gap-1.5">
+          <h2 id="balance-title" class="m-0 text-sm font-normal text-label">Saldo total aproximado</h2>
+          <p class="m-0 font-mono text-[clamp(34px,5vw,52px)] font-bold tracking-[-0.02em]">
+            @if (bank.netWorthPen(); as total) {
+              {{ total | money: 'PEN' }}
+            } @else {
+              <span class="text-faint">S/ —</span>
+            }
+          </p>
+          <p class="m-0 text-[13px] text-subtle" aria-live="polite">
+            @if (bank.usdToPen(); as rate) {
+              Dólares valorizados a S/ {{ rate | number: '1.3-3' }} por US$ 1, tipo de cambio en vivo.
+            } @else {
+              Cargando el tipo de cambio para valorizar tus dólares…
+            }
+          </p>
+        </div>
+
+        <ul class="m-0 grid list-none gap-3 p-0 sm:grid-cols-2">
+          @for (account of bank.accounts(); track account.id) {
+            <li>
+              <a
+                [routerLink]="'/app/movimientos'"
+                [queryParams]="{ cuenta: account.id }"
+                class="panel group flex flex-col gap-3 rounded-panel p-5 text-fg no-underline transition-colors hover:bg-white/8"
+              >
+                <span class="flex items-center justify-between text-sm text-label">
+                  {{ account.name }}
+                  <span class="rounded-md bg-white/7 px-2 py-1 font-mono text-xs text-fg">{{ account.currency }}</span>
+                </span>
+                <span class="font-mono text-2xl font-bold">{{ account.balance | money: account.currency }}</span>
+                <span class="flex items-center justify-between text-[13px] text-subtle">
+                  <span>{{ account.number }}</span>
+                  <span class="flex items-center gap-1 text-dim group-hover:text-lime">
+                    Ver movimientos
+                    <app-icon name="chevron-right" class="size-4" />
+                  </span>
+                </span>
+              </a>
+            </li>
+          }
+        </ul>
+      </section>
+
+      <!-- Level -->
+      <section aria-labelledby="level-title" class="glass flex flex-col gap-5 rounded-card p-7">
+        <div class="flex items-center justify-between">
+          <h2 id="level-title" class="m-0 eyebrow text-xs font-normal text-lilac">Tu nivel</h2>
+          <span class="rounded-full bg-lime/12 px-2.5 py-1 font-mono text-xs text-lime">{{ progress().cashback }}% cashback</span>
+        </div>
+        <p class="m-0 font-display text-3xl font-bold">
+          Nivel {{ progress().level }}
+          <span class="block font-sans text-base font-normal text-muted">{{ progress().rank }}</span>
+        </p>
+        <div class="flex flex-col gap-2">
+          <app-progress-bar
+            class="h-2.5"
+            label="Progreso al siguiente nivel"
+            fillClass="bg-linear-to-r from-violet to-lime shadow-[0_0_18px_var(--color-lime)]"
+            [value]="progress().xpInLevel"
+            [max]="progress().xpForNext"
+            [valueText]="progress().xpInLevel + ' de ' + progress().xpForNext + ' XP'"
+          />
+          <p class="m-0 flex justify-between text-[13px] text-subtle">
+            <span>Faltan {{ xpToNext() }} XP para el nivel {{ progress().level + 1 }}</span>
+            <span class="font-mono">{{ bank.totalXp() | number }} XP</span>
+          </p>
+        </div>
+        <p class="m-0 text-sm text-muted">Cada sol que gastas en compras suma 1 XP. Las transferencias no suman.</p>
+      </section>
+
+      <!-- Recent movements -->
+      <section aria-labelledby="recent-title" class="glass flex flex-col gap-2 rounded-card p-7 lg:col-span-2">
+        <div class="flex items-center justify-between gap-4">
+          <h2 id="recent-title" class="m-0 font-display text-xl font-bold">Últimos movimientos</h2>
+          <a routerLink="/app/movimientos" class="inline-flex min-h-11 items-center gap-1 text-sm text-dim no-underline hover:text-lime">
+            Ver todos <app-icon name="chevron-right" class="size-4" />
+          </a>
+        </div>
+        <ul class="m-0 list-none divide-y divide-white/6 p-0">
+          @for (tx of recent(); track tx.id) {
+            <li>
+              <app-transaction-row
+                [tx]="tx"
+                [currency]="bank.currencyOf(tx.accountId)"
+                [meta]="dayOf(tx.date)"
+              />
+            </li>
+          }
+        </ul>
+      </section>
+
+      <!-- Games limit -->
+      <section aria-labelledby="limit-title" class="glass flex flex-col gap-4 rounded-card p-7">
+        <h2 id="limit-title" class="m-0 eyebrow text-xs font-normal text-lime">Límite inteligente</h2>
+        <p class="m-0 font-display text-xl leading-tight font-bold">Gasto en juegos este mes</p>
+        <div class="flex flex-col gap-2">
+          <p class="m-0 flex justify-between text-sm">
+            <span class="font-mono">{{ bank.gamesSpentThisMonth() | money: 'PEN' }}</span>
+            <span class="text-subtle">de {{ bank.gamesMonthlyLimit | money: 'PEN' }}</span>
+          </p>
+          <app-progress-bar
+            class="h-3"
+            label="Gasto en juegos del límite mensual"
+            [fillClass]="limitUsed() >= 0.8 ? 'bg-ember' : 'bg-lime'"
+            [value]="bank.gamesSpentThisMonth()"
+            [max]="bank.gamesMonthlyLimit"
+          />
+        </div>
+        <p class="m-0 text-sm text-muted">
+          @if (limitUsed() >= 1) {
+            Llegaste a tu tope. Las compras de juegos quedan en pausa hasta el próximo mes.
+          } @else if (limitUsed() >= 0.8) {
+            Estás cerca de tu tope: te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
+          } @else {
+            Te quedan {{ bank.gamesMonthlyLimit - bank.gamesSpentThisMonth() | money: 'PEN' }} para juegos este mes.
+          }
+        </p>
+      </section>
+    </div>
+  `,
+})
+export class Overview {
+  protected readonly session = inject(Session);
+  protected readonly bank = inject(BankStore);
+  private readonly now = inject(NOW);
+
+  protected readonly progress = this.bank.progress;
+  protected readonly xpToNext = computed(() => this.progress().xpForNext - this.progress().xpInLevel);
+  protected readonly recent = computed(() => this.bank.transactions().slice(0, 5));
+  protected readonly limitUsed = computed(() => this.bank.gamesSpentThisMonth() / this.bank.gamesMonthlyLimit);
+
+  protected dayOf(iso: string): string {
+    return dayLabel(iso, this.now());
+  }
+}
