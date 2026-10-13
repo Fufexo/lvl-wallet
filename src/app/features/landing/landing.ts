@@ -1,4 +1,6 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
+
+import { Seo } from '../../core/seo';
 
 import { Bento } from './sections/bento';
 import { FinalCta } from './sections/final-cta';
@@ -42,4 +44,8 @@ import { Steps } from './sections/steps';
     <app-site-footer />
   `,
 })
-export class Landing {}
+export class Landing {
+  constructor() {
+    inject(Seo).canonical('/', inject(DestroyRef));
+  }
+}

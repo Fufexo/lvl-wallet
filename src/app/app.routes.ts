@@ -3,7 +3,7 @@ import { Routes } from '@angular/router';
 export const routes: Routes = [
   {
     path: '',
-    title: 'LVL — Billetera digital para gamers',
+    title: 'LVL — Billetera digital para gamers en soles y dólares',
     loadComponent: () => import('./features/landing/landing').then((m) => m.Landing),
   },
   {

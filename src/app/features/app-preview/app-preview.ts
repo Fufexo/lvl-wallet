@@ -1,6 +1,7 @@
-import { Component } from '@angular/core';
+import { Component, DestroyRef, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 
+import { Seo } from '../../core/seo';
 import { ButtonLink } from '../../shared/ui/button-link';
 import { Icon, IconName } from '../../shared/ui/icon';
 
@@ -60,6 +61,11 @@ interface Upcoming {
   `,
 })
 export class AppPreview {
+  constructor() {
+    // Placeholder page: keep it out of search results until the dashboard ships.
+    inject(Seo).noIndex(inject(DestroyRef));
+  }
+
   protected readonly upcoming: readonly Upcoming[] = [
     { icon: 'swap', title: 'Cuentas PEN y USD', text: 'Saldo y movimientos de cada cuenta, con filtros y búsqueda.' },
     { icon: 'arrow-right', title: 'Transferencias', text: 'Entre tus cuentas o a tu squad, con tipo de cambio en vivo.' },

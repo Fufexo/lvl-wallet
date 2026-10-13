@@ -1,5 +1,7 @@
 # LVL — Billetera digital para gamers
 
+[![CI](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml)
+
 Landing de una billetera digital ficticia para gamers en Perú: pagos en soles y dólares, XP por cada compra y cashback que sube con tu nivel.
 
 **Demo en vivo → [lvl-wallet.vercel.app](https://lvl-wallet.vercel.app)**
@@ -37,6 +39,7 @@ Landing de una billetera digital ficticia para gamers en Perú: pagos en soles y
 - **Movimiento reducido de verdad.** Con `prefers-reduced-motion` no se inicializa Lenis, no se crean animaciones y se anulan transiciones y keyframes. Solo se animan `transform` y `opacity`.
 - **Datos en vivo solo en el navegador.** El tipo de cambio se pide con `httpResource` únicamente en el cliente, para que la página prerenderizada nunca congele un valor viejo.
 - **Sistema de diseño en tokens.** Colores, radios y sombras viven en `@theme`. Las piezas repetidas son primitivos reutilizables en `shared/ui`: `Icon`, `ProgressBar` (con `aria-valuetext`) y la directiva `appButton`, que estiliza un `<a>` sin perder su semántica de enlace.
+- **SEO por ruta.** Título y descripción para buscadores y redes (Open Graph con imagen), `canonical` solo en la landing y `noindex` en `/app`, escritos durante el prerender. `robots.txt` y `sitemap.xml` incluidos.
 - **Componentes pequeños.** Cada sección de la landing es un componente y las piezas con lógica (conversor, tarjeta de saldo, chip del tipo de cambio) están aisladas y reciben sus datos por inputs, listas para reutilizarse en el panel.
 
 ## Calidad
@@ -80,11 +83,13 @@ npm run build      # build de producción + prerender en dist/lvl/browser
 
 ## Próxima fase
 
-El panel bancario en `/app`:
+El panel bancario en `/app`, que hoy muestra un adelanto:
 
 - Cuentas en PEN y USD con movimientos, filtros y búsqueda.
 - Transferencias con validación (Signal Forms) y tipo de cambio en vivo.
 - Simulador de préstamos con cuota mensual y tabla de amortización.
+
+![Adelanto del panel en /app](docs/app-preview.png)
 
 ## Autor
 
