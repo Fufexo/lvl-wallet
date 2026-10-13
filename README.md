@@ -55,7 +55,7 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 - **Lógica de negocio pura y testeada.** Amortización, tasas, niveles y formato de montos son funciones puras con sus tests; los componentes solo las muestran.
 - **Formularios accesibles.** Cada error se conecta a su campo con `aria-describedby`; si el envío falla aparece un resumen con enlaces a cada campo que recibe el foco. Al cambiar de página o de paso, el foco va al nuevo título.
 - **Gráfico sin librerías.** SVG propio con escala de ticks legibles, tooltip al pasar el mouse y resumen textual para lectores de pantalla. La tabla de cronograma es la vista alternativa. La paleta del gráfico se validó para daltonismo y contraste sobre el fondo oscuro.
-- **Prerender + animación sin parpadeo.** Todo el código de GSAP y Lenis corre en `afterNextRender`, nunca en el servidor. Un script mínimo oculta el hero antes del primer pintado para que no "aparezca y desaparezca" al hidratar. GSAP va en el bundle inicial a propósito: el hero (el elemento LCP) lo necesita para aparecer, y separarlo en otro chunk empeoró el LCP en las mediciones.
+- **LCP sin depender de JavaScript.** La intro del hero es CSS puro y arranca en el primer pintado; GSAP queda para la inclinación 3D y las animaciones al hacer scroll, siempre en `afterNextRender`, nunca en el servidor. Las fuentes se sirven desde el propio dominio (Fontsource), sin CSS de terceros que bloquee el render. GSAP va en el bundle inicial a propósito: el hero (el elemento LCP) lo necesita para aparecer, y separarlo en otro chunk empeoró el LCP en las mediciones.
 - **Movimiento reducido de verdad.** Con `prefers-reduced-motion` no hay scroll suave, animaciones ni transiciones.
 - **SEO por ruta.** Open Graph con imagen, `canonical` en la landing, `robots.txt` y `sitemap.xml`.
 
@@ -67,8 +67,8 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 | | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
 |---|:---:|:---:|:---:|:---:|
-| Móvil | 93 | 100 | 100 | 100 |
-| Escritorio | 99 | 100 | 100 | 100 |
+| Móvil | 85–87 | 100 | 100 | 100 |
+| Escritorio | 100 | 100 | 100 | 100 |
 
 ## Estructura
 
