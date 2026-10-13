@@ -1,1 +1,139 @@
-/* You can add global styles to this file, and also import other style files */
+@import "tailwindcss";
+
+/* ──────────────────────────────────────────────
+   Design tokens (LVL)
+   ────────────────────────────────────────────── */
+@theme {
+  --color-ink: #07070c;
+  --color-ink-2: #15151f;
+  --color-ink-3: #23232f;
+  --color-fg: #f2f2f7;
+  --color-soft: #d9d9e6;
+  --color-dim: #c9c9d6;
+  --color-muted: #b9b9cc;
+  --color-label: #a9a9be;
+  --color-subtle: #9a9ab0;
+  --color-faint: #8a8aa0;
+  --color-lime: #c6ff3d;
+  --color-lime-soft: #e4ff9e;
+  --color-violet: #8b4dff;
+  --color-lilac: #cdb2ff;
+  --color-ember: #ff8a3d;
+
+  --font-display: "Unbounded", system-ui, sans-serif;
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius-panel: 18px;
+  --radius-tile: 22px;
+  --radius-card: 28px;
+  --radius-hero: 36px;
+
+  --shadow-glow-lime: 0 0 40px rgb(198 255 61 / 0.35);
+  --shadow-float: 0 30px 80px rgb(0 0 0 / 0.5);
+
+  --animate-float: float 14s ease-in-out infinite alternate;
+
+  @keyframes float {
+    from { transform: translate3d(0, 0, 0) scale(1); }
+    to { transform: translate3d(40px, -30px, 0) scale(1.12); }
+  }
+}
+
+/* Glassmorphism surface */
+@utility glass {
+  background: rgb(255 255 255 / 0.055);
+  border: 1px solid rgb(255 255 255 / 0.12);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+/* Inset panel inside a glass card */
+@utility panel {
+  background: rgb(255 255 255 / 0.05);
+  border: 1px solid rgb(255 255 255 / 0.08);
+}
+
+/* Centered page column shared by every section */
+@utility page-container {
+  @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-12;
+}
+
+/* Small mono label above headings ("01 · MULTI-MONEDA") */
+@utility eyebrow {
+  font-family: var(--font-mono);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* Outlined display numbers */
+@utility text-outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--color-lime);
+}
+
+@layer base {
+  html {
+    background: var(--color-ink);
+    color-scheme: dark;
+    /* Anchors and focused elements never land under the sticky nav (WCAG 2.4.11). */
+    scroll-padding-top: 6rem;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-ink);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background: var(--color-lime);
+    color: var(--color-ink);
+  }
+
+  /* The outline follows each element's own radius, so pill buttons keep their shape. */
+  :focus-visible {
+    outline: 2px solid var(--color-lime);
+    outline-offset: 3px;
+  }
+}
+
+/*
+ * Hero intro without a flash: an inline script in index.html adds `.motion` before
+ * first paint (only when motion is allowed), so the prerendered hero starts hidden and
+ * GSAP reveals it. If JS never runs, the fallback animation shows it after 2.5s.
+ */
+.motion [data-hero-root] {
+  visibility: hidden;
+  animation: hero-fallback 0s 2.5s forwards;
+}
+
+@keyframes hero-fallback {
+  to { visibility: visible; }
+}
+
+/* Lenis recommended styles */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
+}
+.lenis [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

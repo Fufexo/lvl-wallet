@@ -1,11 +1,33 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
 <head>
   <meta charset="utf-8">
-  <title>Lvl</title>
+  <title>LVL — Billetera digital para gamers</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Paga juegos, pases y suscripciones en soles o dólares. Cada compra te da XP y cada nivel desbloquea cashback.">
+  <meta name="theme-color" content="#07070C">
+  <meta name="color-scheme" content="dark">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="es_PE">
+  <meta property="og:site_name" content="LVL">
+  <meta property="og:title" content="LVL — Billetera digital para gamers">
+  <meta property="og:description" content="Paga juegos, pases y suscripciones en soles o dólares. Cada compra te da XP y cada nivel desbloquea cashback.">
+  <meta property="og:url" content="https://lvl-wallet.vercel.app/">
+  <meta property="og:image" content="https://lvl-wallet.vercel.app/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Landing de LVL: titular «Sube de nivel tu dinero» junto a una tarjeta con saldo y nivel.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://lvl-wallet.vercel.app/">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <script>
+    // Lets CSS hide the prerendered hero until its GSAP intro runs (no flash after hydration).
+    if (!matchMedia('(prefers-reduced-motion: reduce)').matches) document.documentElement.classList.add('motion');
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&family=JetBrains+Mono:wght@500;700&family=Unbounded:wght@500;700;900&display=swap">
 </head>
 <body>
   <app-root></app-root>
