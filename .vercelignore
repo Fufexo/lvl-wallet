@@ -3,3 +3,6 @@ dist
 node_modules
 docs
 .vscode
+e2e
+test-results
+playwright-report

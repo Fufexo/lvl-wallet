@@ -44,3 +44,7 @@ __screenshots__/
 Thumbs.db
 .vercel
 
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
