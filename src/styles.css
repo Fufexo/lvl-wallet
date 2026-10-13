@@ -183,6 +183,36 @@
   from { opacity: 0; transform: translateX(-30px); }
 }
 
+/*
+ * Native selects in the dark theme. Unlayered on purpose so it wins over utility padding:
+ * the custom chevron needs room on the right. The option list is drawn by the OS, so its
+ * colors are set explicitly (otherwise Windows shows light text on a white list).
+ */
+select {
+  appearance: none;
+  color-scheme: dark;
+  padding-right: 2.75rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b9b9cc' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 1.125rem;
+  cursor: pointer;
+}
+
+select option {
+  background-color: var(--color-ink-2);
+  color: var(--color-fg);
+}
+
+select option:checked {
+  background-color: var(--color-ink-3);
+  color: var(--color-lime);
+}
+
+select option:disabled {
+  color: var(--color-subtle);
+}
+
 /* Lenis recommended styles */
 html.lenis,
 html.lenis body {
