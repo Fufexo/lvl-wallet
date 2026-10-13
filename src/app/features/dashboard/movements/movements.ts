@@ -3,6 +3,7 @@ import { FormField, form } from '@angular/forms/signals';
 
 import { NOW } from '../../../core/clock';
 import { Icon } from '../../../shared/ui/icon';
+import { Select, SelectOption } from '../../../shared/ui/select';
 import { BankStore } from '../data/bank-store';
 import { dayLabel } from '../data/dates';
 import { CATEGORY_LABELS, Category, Transaction } from '../data/models';
@@ -24,7 +25,7 @@ const normalize = (text: string) =>
 
 @Component({
   selector: 'app-movements',
-  imports: [FormField, Icon, TransactionRow],
+  imports: [FormField, Icon, Select, TransactionRow],
   host: { class: 'flex flex-col gap-6' },
   template: `
     <header class="flex flex-col gap-2">
@@ -50,21 +51,11 @@ const normalize = (text: string) =>
       </div>
       <div>
         <label for="cuenta" class="sr-only">Cuenta</label>
-        <select id="cuenta" [class]="selectClass" [formField]="filters.account">
-          <option value="todas">Todas las cuentas</option>
-          @for (account of bank.accounts(); track account.id) {
-            <option [value]="account.id">{{ account.name }}</option>
-          }
-        </select>
+        <app-select inputId="cuenta" label="Cuenta" [options]="accountOptions()" [formField]="filters.account" />
       </div>
       <div>
         <label for="categoria" class="sr-only">Categoría</label>
-        <select id="categoria" [class]="selectClass" [formField]="filters.category">
-          <option value="todas">Todas las categorías</option>
-          @for (c of categories; track c.value) {
-            <option [value]="c.value">{{ c.label }}</option>
-          }
-        </select>
+        <app-select inputId="categoria" label="Categoría" [options]="categoryOptions" [formField]="filters.category" />
       </div>
     </div>
 
@@ -114,12 +105,14 @@ export class Movements {
   protected readonly bank = inject(BankStore);
   private readonly now = inject(NOW);
 
-  protected readonly categories = (Object.keys(CATEGORY_LABELS) as Category[]).map((value) => ({
-    value,
-    label: CATEGORY_LABELS[value],
-  }));
-  protected readonly selectClass =
-    'panel min-h-12 w-full rounded-panel bg-ink-2 px-4 text-fg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime';
+  protected readonly categoryOptions: SelectOption<Category | 'todas'>[] = [
+    { value: 'todas', label: 'Todas las categorías' },
+    ...(Object.keys(CATEGORY_LABELS) as Category[]).map((value) => ({ value, label: CATEGORY_LABELS[value] })),
+  ];
+  protected readonly accountOptions = computed<SelectOption<string>[]>(() => [
+    { value: 'todas', label: 'Todas las cuentas' },
+    ...this.bank.accounts().map((a) => ({ value: a.id, label: a.name })),
+  ]);
 
   /** Filters reset whenever the URL's account changes, but stay editable in between. */
   private readonly model = linkedSignal<Filters>(() => ({

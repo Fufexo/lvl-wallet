@@ -5,6 +5,8 @@ import { LocalStore } from '../../../core/local-store';
 import { formatMoney } from '../../../shared/ui/money';
 import { BankError, BankStore, round2, simulateLatency } from './bank-store';
 import { Category, Currency, VirtualCard } from './models';
+import { OffersStore } from './offers-store';
+import { SavingsStore } from './savings-store';
 import { SEED_CARDS } from './seed';
 
 const KEY = 'lvl.cards.v1';
@@ -29,15 +31,28 @@ export interface NewCard {
   readonly limit: number;
 }
 
+export interface AppliedOffer {
+  readonly partner: string;
+  readonly title: string;
+  /** What it did in this purchase, e.g. "+60 XP extra" or "Ahorraste S/ 4.50". */
+  readonly effect: string;
+}
+
 export interface PurchaseReceipt {
   readonly merchant: string;
+  /** What was charged, after discounts. */
   readonly amount: number;
+  /** List price before discounts. */
+  readonly price: number;
   readonly currency: Currency;
   readonly xp: number;
   readonly cashback: number;
   readonly cashbackRate: number;
   /** The new level when this purchase levelled the player up. */
   readonly levelUp: number | null;
+  readonly offers: readonly AppliedOffer[];
+  /** Saved into a round-up goal. */
+  readonly roundUp: number;
 }
 
 /**
@@ -49,6 +64,8 @@ export class CardsStore {
   private readonly storage = inject(LocalStore);
   private readonly now = inject(NOW);
   private readonly bank = inject(BankStore);
+  private readonly offers = inject(OffersStore);
+  private readonly savings = inject(SavingsStore);
 
   private readonly state = signal<readonly VirtualCard[]>(this.restore());
 
@@ -90,16 +107,19 @@ export class CardsStore {
     this.state.update((cards) => cards.filter((c) => c.id !== id));
   }
 
-  async purchase(cardId: string, merchantId: string, amount: number): Promise<PurchaseReceipt> {
+  async purchase(cardId: string, merchantId: string, price: number): Promise<PurchaseReceipt> {
     await simulateLatency();
 
     const card = this.card(cardId);
     const merchant = MERCHANTS.find((m) => m.id === merchantId);
     if (!card || !merchant) throw new BankError('Elige una tarjeta y una tienda.');
     if (card.frozen) throw new BankError('Esta tarjeta está congelada. Descongélala para usarla.');
-    if (!(amount > 0)) throw new BankError('El monto debe ser mayor a cero.');
+    if (!(price > 0)) throw new BankError('El monto debe ser mayor a cero.');
 
     const currency = this.bank.currencyOf(card.accountId);
+    const offers = this.offers.activeFor(merchant.id);
+    const discount = offers.find((o) => o.kind === 'discount');
+    const amount = discount ? round2(price * (1 - discount.value / 100)) : price;
     const left = round2(card.limit - card.spent);
     if (amount > left) {
       throw new BankError(`Supera el tope de esta tarjeta: te quedan ${formatMoney(left, currency)}.`);
@@ -121,8 +141,23 @@ export class CardsStore {
 
     const levelBefore = this.bank.progress().level;
     const cashbackRate = this.bank.progress().cashback;
-    const xp = Math.round(amountPen);
-    const cashback = round2((amount * cashbackRate) / 100);
+    const baseXp = Math.round(amountPen);
+    const multiplier = Math.max(1, ...offers.filter((o) => o.kind === 'xp').map((o) => o.value));
+    const xp = baseXp * multiplier;
+    const bonusOffer = offers.find((o) => o.kind === 'cashback');
+    const bonus = bonusOffer ? round2(Math.min((amount * bonusOffer.value) / 100, bonusOffer.cap ?? Infinity)) : 0;
+    const cashback = round2((amount * cashbackRate) / 100 + bonus);
+
+    const applied = offers.map((o) => ({
+      partner: o.partner,
+      title: o.title,
+      effect:
+        o.kind === 'xp'
+          ? `+${baseXp * (o.value - 1)} XP extra`
+          : o.kind === 'discount'
+            ? `Ahorraste ${formatMoney(round2(price - amount), currency)}`
+            : `+${formatMoney(bonus, currency)} de cashback extra`,
+    }));
 
     this.bank.record([
       {
@@ -131,6 +166,8 @@ export class CardsStore {
         category: merchant.category,
         amount: -amount,
         xp,
+        source: 'card',
+        ...(offers.length ? { offerIds: offers.map((o) => o.id) } : {}),
       },
       ...(cashback > 0
         ? [
@@ -147,16 +184,20 @@ export class CardsStore {
     this.state.update((cards) =>
       cards.map((c) => (c.id === card.id ? { ...c, spent: round2(c.spent + amount) } : c)),
     );
+    const roundUp = this.savings.roundUp(card.accountId, amount);
 
     const levelAfter = this.bank.progress().level;
     return {
       merchant: merchant.label,
       amount,
+      price,
       currency,
       xp,
       cashback,
       cashbackRate,
       levelUp: levelAfter > levelBefore ? levelAfter : null,
+      offers: applied,
+      roundUp,
     };
   }
 

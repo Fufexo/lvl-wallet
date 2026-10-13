@@ -6,7 +6,12 @@ export type Category =
   | 'gift-cards'
   | 'transferencias'
   | 'recargas'
-  | 'cashback';
+  | 'cashback'
+  | 'ahorro'
+  | 'recompensas';
+
+/** What produced a movement; missions count these. */
+export type MovementSource = 'card' | 'squad' | 'transfer-own' | 'transfer-squad' | 'savings' | 'mission';
 
 export interface Account {
   readonly id: string;
@@ -25,8 +30,11 @@ export interface Transaction {
   readonly category: Category;
   /** Signed amount in the account's currency (negative = money out). */
   readonly amount: number;
-  /** XP earned by this movement (purchases only). */
+  /** XP earned by this movement (purchases and mission rewards). */
   readonly xp: number;
+  readonly source?: MovementSource;
+  /** Partner offers applied to this purchase. */
+  readonly offerIds?: readonly string[];
 }
 
 export interface Contact {
@@ -70,4 +78,16 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   transferencias: 'Transferencias',
   recargas: 'Recargas',
   cashback: 'Cashback',
+  ahorro: 'Ahorro',
+  recompensas: 'Recompensas',
 };
+
+export interface SavingsGoal {
+  readonly id: string;
+  readonly name: string;
+  readonly target: number;
+  readonly saved: number;
+  readonly accountId: string;
+  /** Round every card purchase up to the next unit and save the difference here. */
+  readonly roundUp: boolean;
+}

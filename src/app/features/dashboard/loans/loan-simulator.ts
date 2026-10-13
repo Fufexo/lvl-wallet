@@ -4,6 +4,7 @@ import { FormField, form, max, min, required } from '@angular/forms/signals';
 
 import { FieldError } from '../../../shared/ui/field-error';
 import { MoneyPipe } from '../../../shared/ui/money';
+import { Select, SelectOption } from '../../../shared/ui/select';
 import { BankStore } from '../data/bank-store';
 import { amortize, annualRateForLevel } from '../data/loan';
 import { AmortizationChart } from './amortization-chart';
@@ -18,7 +19,7 @@ const MAX_AMOUNT = 30_000;
 
 @Component({
   selector: 'app-loan-simulator',
-  imports: [AmortizationChart, DecimalPipe, FieldError, FormField, MoneyPipe, PercentPipe],
+  imports: [AmortizationChart, DecimalPipe, FieldError, FormField, MoneyPipe, PercentPipe, Select],
   host: { class: 'flex flex-col gap-6' },
   template: `
     <header class="flex flex-col gap-2">
@@ -71,15 +72,7 @@ const MAX_AMOUNT = 30_000;
 
         <div>
           <label for="loan-months" class="mb-2 block font-medium">Plazo</label>
-          <select
-            id="loan-months"
-            class="panel min-h-12 w-full rounded-panel bg-ink-2 px-4 text-fg outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime"
-            [formField]="loan.months"
-          >
-            @for (m of terms; track m) {
-              <option [value]="m">{{ m }} meses</option>
-            }
-          </select>
+          <app-select inputId="loan-months" label="Plazo" [options]="termOptions" [formField]="loan.months" />
         </div>
 
         <div class="flex flex-col gap-1 rounded-panel border border-violet/30 bg-violet/10 p-4">
@@ -160,7 +153,10 @@ export class LoanSimulator {
   protected readonly minAmount = MIN_AMOUNT;
   protected readonly maxAmount = MAX_AMOUNT;
   protected readonly presets = [2000, 5000, 10000] as const;
-  protected readonly terms = ['6', '12', '18', '24', '36', '48'] as const;
+  protected readonly termOptions: SelectOption<string>[] = ['6', '12', '18', '24', '36', '48'].map((m) => ({
+    value: m,
+    label: `${m} meses`,
+  }));
 
   protected readonly model = signal<LoanModel>({ amount: 5000, months: '24' });
   protected readonly loan = form(this.model, (p) => {

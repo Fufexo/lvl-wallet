@@ -12,6 +12,8 @@ const ICONS: Record<Category, IconName> = {
   transferencias: 'swap',
   recargas: 'wallet',
   cashback: 'coins',
+  ahorro: 'target',
+  recompensas: 'sparkle',
 };
 
 /** One movement: what, when, which account, how much and the XP it earned. */
@@ -33,7 +35,11 @@ const ICONS: Record<Category, IconName> = {
       </p>
     </div>
     <div class="flex flex-none flex-col items-end gap-1">
-      <span class="font-mono" [class.text-lime]="tx().amount > 0">{{ tx().amount | money: currency() : true }}</span>
+      @if (tx().amount !== 0) {
+        <span class="font-mono" [class.text-lime]="tx().amount > 0">{{ tx().amount | money: currency() : true }}</span>
+      } @else {
+        <span class="text-sm text-subtle">Bonus</span>
+      }
       @if (tx().xp > 0) {
         <span class="rounded-full bg-violet/18 px-2 py-0.5 font-mono text-[11px] text-lilac">+{{ tx().xp }} XP</span>
       }

@@ -1,4 +1,13 @@
-import { Account, Category, Contact, SharedSubscription, Transaction, VirtualCard } from './models';
+import {
+  Account,
+  Category,
+  Contact,
+  MovementSource,
+  SavingsGoal,
+  SharedSubscription,
+  Transaction,
+  VirtualCard,
+} from './models';
 
 /** XP the demo profile carries over from "previous seasons". */
 export const PREVIOUS_XP = 2480;
@@ -35,6 +44,10 @@ export const SEED_SUBSCRIPTIONS: readonly SharedSubscription[] = [
   },
 ];
 
+export const SEED_SAVINGS: readonly SavingsGoal[] = [
+  { id: 'goal-1', name: 'Consola nueva', target: 1800, saved: 240, accountId: 'pen', roundUp: true },
+];
+
 interface SeedMovement {
   readonly accountId: string;
   readonly daysAgo: number;
@@ -42,13 +55,14 @@ interface SeedMovement {
   readonly category: Category;
   readonly amount: number;
   readonly xp?: number;
+  readonly source?: MovementSource;
 }
 
 // Relative dates keep the demo fresh no matter when it is opened.
 const MOVEMENTS: readonly SeedMovement[] = [
   { accountId: 'pen', daysAgo: 0, description: 'Pase de temporada', category: 'juegos', amount: -45.9, xp: 46 },
   { accountId: 'usd', daysAgo: 0, description: 'Tienda de juegos', category: 'juegos', amount: -29.99, xp: 112 },
-  { accountId: 'pen', daysAgo: 1, description: 'Suscripción de anime · squad', category: 'suscripciones', amount: -25, xp: 25 },
+  { accountId: 'pen', daysAgo: 1, description: 'Suscripción de anime · squad', category: 'suscripciones', amount: -25, xp: 25, source: 'squad' },
   { accountId: 'pen', daysAgo: 1, description: 'Pago de @vale.gg · Suscripción de anime', category: 'transferencias', amount: 6.25 },
   { accountId: 'pen', daysAgo: 2, description: 'Recarga por billetera móvil', category: 'recargas', amount: 300 },
   { accountId: 'pen', daysAgo: 4, description: 'Gift card de S/ 50', category: 'gift-cards', amount: -50, xp: 50 },
@@ -78,6 +92,7 @@ export function seedTransactions(now: Date): Transaction[] {
       category: m.category,
       amount: m.amount,
       xp: m.xp ?? 0,
+      ...(m.source ? { source: m.source } : {}),
     };
   });
 }

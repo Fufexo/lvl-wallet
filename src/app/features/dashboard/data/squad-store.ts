@@ -68,6 +68,7 @@ export class SquadStore {
         category: 'suscripciones',
         amount: -request.amount,
         xp: pen === null ? 0 : Math.round(pen),
+        source: 'squad',
       },
     ]);
 

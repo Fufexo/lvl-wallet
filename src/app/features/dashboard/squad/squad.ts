@@ -5,6 +5,7 @@ import { FieldError } from '../../../shared/ui/field-error';
 import { Icon } from '../../../shared/ui/icon';
 import { MoneyPipe } from '../../../shared/ui/money';
 import { ProgressBar } from '../../../shared/ui/progress-bar';
+import { Select } from '../../../shared/ui/select';
 import { BankError, BankStore, round2 } from '../data/bank-store';
 import { SharedSubscription } from '../data/models';
 import { SquadStore, shareOf } from '../data/squad-store';
@@ -13,7 +14,7 @@ type MemberFlags = Record<string, boolean>;
 
 @Component({
   selector: 'app-squad',
-  imports: [FieldError, FormField, FormRoot, Icon, MoneyPipe, ProgressBar],
+  imports: [FieldError, FormField, FormRoot, Icon, MoneyPipe, ProgressBar, Select],
   host: { class: 'flex flex-col gap-6' },
   template: `
     <header class="flex flex-wrap items-end justify-between gap-4">
@@ -125,11 +126,7 @@ type MemberFlags = Record<string, boolean>;
             </div>
             <div>
               <label for="split-account" class="mb-2 block font-medium">Pagas desde</label>
-              <select id="split-account" [class]="control" [formField]="split.accountId">
-                @for (a of bank.accounts(); track a.id) {
-                  <option [value]="a.id">{{ a.name }}</option>
-                }
-              </select>
+              <app-select inputId="split-account" label="Pagas desde" [options]="bank.accountOptions()" [formField]="split.accountId" />
             </div>
           </div>
 

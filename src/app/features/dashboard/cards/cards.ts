@@ -1,20 +1,23 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, input, linkedSignal, signal, untracked } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { FormField, FormRoot, form, max, maxLength, min, required } from '@angular/forms/signals';
 
 import { FieldError } from '../../../shared/ui/field-error';
 import { Icon } from '../../../shared/ui/icon';
 import { MoneyPipe } from '../../../shared/ui/money';
 import { ProgressBar } from '../../../shared/ui/progress-bar';
+import { Select, SelectOption } from '../../../shared/ui/select';
 import { BankError, BankStore } from '../data/bank-store';
 import { CardsStore, MAX_CARDS, MERCHANTS, PurchaseReceipt } from '../data/cards-store';
 import { VirtualCardView } from '../ui/virtual-card-view';
+import { OffersStore, offerBadge } from '../data/offers-store';
 
 const playerError = (e: unknown) =>
   e instanceof BankError ? e.message : 'No pudimos completar la operación. Intenta de nuevo.';
 
 @Component({
   selector: 'app-cards',
-  imports: [FieldError, FormField, FormRoot, Icon, MoneyPipe, ProgressBar, VirtualCardView],
+  imports: [FieldError, FormField, FormRoot, Icon, MoneyPipe, ProgressBar, RouterLink, Select, VirtualCardView],
   host: { class: 'flex flex-col gap-6' },
   template: `
     <header class="flex flex-col gap-2">
@@ -92,25 +95,31 @@ const playerError = (e: unknown) =>
             <form [formRoot]="buy" class="flex flex-col gap-4">
               <div>
                 <label for="buy-card" class="mb-2 block font-medium">Tarjeta</label>
-                <select id="buy-card" [class]="control" [formField]="buy.cardId">
-                  @for (card of usableCards(); track card.id) {
-                    <option [value]="card.id">{{ card.label }} · •••• {{ card.last4 }}</option>
-                  }
-                </select>
+                <app-select inputId="buy-card" label="Tarjeta" [options]="cardOptions()" [formField]="buy.cardId" />
               </div>
               <div>
                 <label for="buy-merchant" class="mb-2 block font-medium">Tienda</label>
-                <select id="buy-merchant" [class]="control" [formField]="buy.merchantId">
-                  @for (m of merchants; track m.id) {
-                    <option [value]="m.id">{{ m.label }}</option>
-                  }
-                </select>
+                <app-select inputId="buy-merchant" label="Tienda" [options]="merchantOptions" [formField]="buy.merchantId" />
               </div>
               <div>
                 <label for="buy-amount" class="mb-2 block font-medium">Monto</label>
                 <input id="buy-amount" type="number" inputmode="decimal" step="0.01" placeholder="0.00" aria-describedby="buy-amount-error" [class]="control + ' font-mono'" [formField]="buy.amount" [attr.aria-invalid]="buy.amount().touched() && buy.amount().invalid()" />
                 <app-field-error id="buy-amount-error" [state]="buy.amount()" />
               </div>
+              @if (offersHere().length) {
+                <p class="m-0 flex flex-wrap items-center gap-2 rounded-panel border border-lime/25 bg-lime/6 px-3 py-2 text-sm">
+                  <app-icon name="tag" class="size-4 text-lime" />
+                  <span>Se aplica:</span>
+                  @for (o of offersHere(); track o.id) {
+                    <span class="rounded-full bg-lime/14 px-2 py-0.5 font-mono text-xs text-lime">{{ o.partner }} {{ badge(o) }}</span>
+                  }
+                </p>
+              } @else {
+                <p class="m-0 text-sm text-subtle">
+                  Sin ofertas activas en esta tienda.
+                  <a routerLink="/app/botin" class="text-dim underline underline-offset-2 hover:text-fg">Ver el botín</a>
+                </p>
+              }
               <button type="submit" [disabled]="buy().submitting()" [class]="primary">
                 {{ buy().submitting() ? 'Pagando…' : 'Pagar con la tarjeta' }}
               </button>
@@ -121,7 +130,15 @@ const playerError = (e: unknown) =>
 
           @if (receipt(); as r) {
             <div role="status" class="flex flex-col gap-2 rounded-panel border border-lime/30 bg-lime/8 p-4">
-              <p class="m-0 font-medium">Pagaste {{ r.amount | money: r.currency }} en {{ r.merchant }}.</p>
+              <p class="m-0 font-medium">
+                Pagaste {{ r.amount | money: r.currency }} en {{ r.merchant }}@if (r.price !== r.amount) { <span class="text-subtle"> (antes {{ r.price | money: r.currency }})</span> }.
+              </p>
+              @for (o of r.offers; track o.title) {
+                <p class="m-0 flex items-center gap-2 text-sm"><app-icon name="tag" class="size-4 text-lime" /> {{ o.partner }}: {{ o.effect }}</p>
+              }
+              @if (r.roundUp > 0) {
+                <p class="m-0 flex items-center gap-2 text-sm"><app-icon name="target" class="size-4 text-lime" /> {{ r.roundUp | money: r.currency }} de redondeo a tu cofre</p>
+              }
               <p class="m-0 flex flex-wrap gap-2 font-mono text-sm">
                 <span class="rounded-full bg-violet/18 px-2.5 py-1 text-lilac">+{{ r.xp }} XP</span>
                 @if (r.cashback > 0) {
@@ -149,11 +166,7 @@ const playerError = (e: unknown) =>
               </div>
               <div>
                 <label for="new-account" class="mb-2 block font-medium">Cobra desde</label>
-                <select id="new-account" [class]="control" [formField]="newCard.accountId">
-                  @for (a of bank.accounts(); track a.id) {
-                    <option [value]="a.id">{{ a.name }}</option>
-                  }
-                </select>
+                <app-select inputId="new-account" label="Cobra desde" [options]="bank.accountOptions()" [formField]="newCard.accountId" />
               </div>
               <div>
                 <label for="new-limit" class="mb-2 block font-medium">Tope de gasto</label>
@@ -190,8 +203,24 @@ export class Cards {
   protected readonly confirmingDelete = signal<string | null>(null);
   protected readonly receipt = signal<PurchaseReceipt | null>(null);
   protected readonly usableCards = computed(() => this.store.cards().filter((c) => !c.frozen));
+  protected readonly cardOptions = computed<SelectOption<string>[]>(() =>
+    this.usableCards().map((c) => ({ value: c.id, label: c.label, hint: `•••• ${c.last4}` })),
+  );
+  protected readonly merchantOptions: SelectOption<string>[] = MERCHANTS.map((m) => ({ value: m.id, label: m.label }));
 
-  private readonly buyModel = signal({ cardId: this.usableCards()[0]?.id ?? '', merchantId: 'gift', amount: null as number | null });
+  /** `?tienda=` preselects a store, e.g. from "Usar ahora" in the Botín. */
+  readonly tienda = input<string>();
+  private readonly offersStore = inject(OffersStore);
+
+  private readonly buyModel = linkedSignal(() => {
+    const tienda = this.tienda();
+    return {
+      cardId: untracked(() => this.usableCards()[0]?.id ?? ''),
+      merchantId: MERCHANTS.some((m) => m.id === tienda) ? tienda! : 'gift',
+      amount: null as number | null,
+    };
+  });
+  protected readonly offersHere = computed(() => this.offersStore.activeFor(this.buyModel().merchantId));
   protected readonly buy = form(
     this.buyModel,
     (p) => {
@@ -245,6 +274,10 @@ export class Cards {
       },
     },
   );
+
+  protected badge(offer: Parameters<typeof offerBadge>[0]): string {
+    return offerBadge(offer);
+  }
 
   protected toggleFreeze(id: string): void {
     this.store.toggleFreeze(id);

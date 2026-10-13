@@ -28,6 +28,21 @@ export const DASHBOARD_ROUTES: Routes = [
         loadComponent: () => import('./cards/cards').then((m) => m.Cards),
       },
       {
+        path: 'botin',
+        title: 'Botín de aliados — LVL',
+        loadComponent: () => import('./offers/offers').then((m) => m.Offers),
+      },
+      {
+        path: 'misiones',
+        title: 'Misiones — LVL',
+        loadComponent: () => import('./missions/missions').then((m) => m.Missions),
+      },
+      {
+        path: 'cofres',
+        title: 'Cofres de ahorro — LVL',
+        loadComponent: () => import('./savings/savings').then((m) => m.Savings),
+      },
+      {
         path: 'squad',
         title: 'Squad — LVL',
         loadComponent: () => import('./squad/squad').then((m) => m.Squad),

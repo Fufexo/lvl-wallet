@@ -213,6 +213,17 @@ select option:disabled {
   color: var(--color-subtle);
 }
 
+/* Floating option list of <app-select>: a quick, subtle pop (disabled by reduced motion). */
+.select-panel {
+  /* Reset the UA popover box (inset: 0; margin: auto); inline coordinates place it. */
+  inset: auto;
+  animation: select-pop 0.14s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+
+@keyframes select-pop {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+}
+
 /* Lenis recommended styles */
 html.lenis,
 html.lenis body {

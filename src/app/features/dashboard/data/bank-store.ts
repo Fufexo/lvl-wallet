@@ -3,6 +3,8 @@ import { Service, computed, effect, inject, signal } from '@angular/core';
 import { NOW } from '../../../core/clock';
 import { ExchangeRate } from '../../../core/exchange-rate';
 import { LocalStore } from '../../../core/local-store';
+import { formatMoney } from '../../../shared/ui/money';
+import { SelectOption } from '../../../shared/ui/select';
 import { Account, Contact, Currency, Transaction } from './models';
 import { progressFor } from './progression';
 import { CONTACTS, GAMES_MONTHLY_LIMIT, PREVIOUS_XP, SEED_ACCOUNTS, seedTransactions } from './seed';
@@ -65,6 +67,11 @@ export class BankStore {
 
   readonly accounts = computed(() => this.state().accounts);
   readonly contacts: readonly Contact[] = CONTACTS;
+
+  /** Accounts as select options, with the balance as a hint. */
+  readonly accountOptions = computed<SelectOption<string>[]>(() =>
+    this.accounts().map((a) => ({ value: a.id, label: a.name, hint: formatMoney(a.balance, a.currency) })),
+  );
   readonly usdToPen = this.fx.usdToPen;
 
   /** Newest first; movements recorded at the same instant keep "last recorded on top". */
@@ -150,6 +157,7 @@ export class BankStore {
         category: 'transferencias',
         amount: -quote.debit,
         xp: 0,
+        source: request.to.kind === 'contact' ? 'transfer-squad' : 'transfer-own',
       },
     ];
     if (request.to.kind === 'account') {

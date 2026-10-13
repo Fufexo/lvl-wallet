@@ -40,7 +40,7 @@ describe('Movements filters', () => {
     fixture.componentRef.setInput('cuenta', 'usd');
     await fixture.whenStable();
     expect(count()).toBe('4 movimientos');
-    expect(el.querySelector<HTMLSelectElement>('#cuenta')!.value).toBe('usd');
+    expect(el.querySelector('#cuenta')!.textContent).toContain('Cuenta en dólares');
   });
 
   it('searches without caring about accents or case', async () => {

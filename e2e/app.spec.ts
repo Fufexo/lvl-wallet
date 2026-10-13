@@ -63,7 +63,17 @@ test.describe('signed in', () => {
   });
 
   test('every dashboard page passes axe', async ({ page }) => {
-    for (const path of ['/app', '/app/movimientos', '/app/transferir', '/app/tarjetas', '/app/squad', '/app/prestamos']) {
+    for (const path of [
+      '/app',
+      '/app/movimientos',
+      '/app/transferir',
+      '/app/cofres',
+      '/app/tarjetas',
+      '/app/botin',
+      '/app/misiones',
+      '/app/squad',
+      '/app/prestamos',
+    ]) {
       await page.goto(path);
       await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expectNoA11yViolations(page);
@@ -90,7 +100,8 @@ test.describe('signed in', () => {
 
   test('a virtual card purchase earns XP, cashback and a level up', async ({ page }) => {
     await page.goto('/app/tarjetas');
-    await page.getByLabel('Tienda', { exact: true }).selectOption({ label: 'Suscripción de streaming' });
+    await page.getByRole('combobox', { name: 'Tienda' }).click();
+    await page.getByRole('option', { name: 'Suscripción de streaming' }).click();
     await page.getByLabel('Monto', { exact: true }).fill('60');
     await page.getByRole('button', { name: 'Pagar con la tarjeta' }).click();
 
@@ -112,6 +123,53 @@ test.describe('signed in', () => {
     await page.getByRole('button', { name: 'Sí, eliminar' }).click();
     await expect(page.getByRole('status').first()).toHaveText('Eliminaste la tarjeta «Tienda nueva».');
     await expect(page.getByRole('heading', { name: 'No tienes tarjetas virtuales' })).toBeVisible();
+  });
+
+  test('the themed select works with the keyboard alone', async ({ page }) => {
+    await page.goto('/app/movimientos');
+    const account = page.getByRole('combobox', { name: 'Cuenta' });
+    await account.focus();
+    await page.keyboard.press('ArrowDown');
+    await expect(account).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.getByRole('option', { name: 'Todas las cuentas' })).toHaveAttribute('aria-selected', 'true');
+
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('ArrowDown');
+    await page.keyboard.press('Enter');
+    await expect(account).toHaveAttribute('aria-expanded', 'false');
+    await expect(account).toContainText('Cuenta en dólares');
+    await expect(account).toBeFocused();
+    await expect(page.getByText('4 movimientos')).toBeVisible();
+
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('Escape');
+    await expect(account).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  test('an activated partner offer applies to the next card purchase', async ({ page }) => {
+    await page.goto('/app/botin');
+    await page.getByRole('button', { name: 'Activar +10% de cashback en gift cards' }).click();
+    await expect(page.getByRole('button', { name: 'Desactivar +10% de cashback en gift cards' })).toHaveAttribute('aria-pressed', 'true');
+    await page.getByRole('link', { name: 'Usar ahora' }).click();
+
+    await expect(page).toHaveURL(/\/app\/tarjetas\?tienda=gift$/);
+    await expect(page.getByText('Se aplica:')).toBeVisible();
+    await page.getByLabel('Monto', { exact: true }).fill('50');
+    await page.getByRole('button', { name: 'Pagar con la tarjeta' }).click();
+    await expect(page.getByRole('status').filter({ hasText: 'Pagaste' })).toContainText('Cofre Andino: +S/ 5.00 de cashback extra');
+  });
+
+  test('saving into a goal completes a weekly mission that pays XP', async ({ page }) => {
+    await page.goto('/app/cofres');
+    await page.getByLabel('Monto', { exact: true }).fill('60');
+    await page.getByRole('button', { name: 'Guardar' }).click();
+    await expect(page.getByRole('status').first()).toHaveText('Guardaste S/ 60.00 en «Consola nueva».');
+    await expect(page.getByText('S/ 300.00').first()).toBeVisible();
+
+    await page.goto('/app/misiones');
+    await page.getByRole('button', { name: 'Reclamar 200 XP' }).click();
+    await expect(page.getByRole('status').first()).toContainText('+200 XP');
+    await expect(page.getByText('Reclamada').first()).toBeVisible();
   });
 
   test('split a subscription and record a payment from the squad', async ({ page }) => {

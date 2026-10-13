@@ -30,7 +30,12 @@ export type IconName =
   | 'users'
   | 'more'
   | 'trash'
-  | 'sparkle';
+  | 'sparkle'
+  | 'chevron-down'
+  | 'target'
+  | 'tag'
+  | 'flag'
+  | 'lock-open';
 
 /**
  * Decorative stroke icon on a 24×24 grid. Size and color come from the host classes,
@@ -94,6 +99,11 @@ export type IconName =
           <path d="M10 15.5c.6 1.2 2.6 2 5 2 2.8 0 5-1.1 5-2.5v-4c0-1.4-2.2-2.5-5-2.5" />
         }
         @case ('chevron-right') { <path d="m9 6 6 6-6 6" /> }
+        @case ('chevron-down') { <path d="m6 9 6 6 6-6" /> }
+        @case ('target') { <circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="5" /><circle cx="12" cy="12" r="1" /> }
+        @case ('tag') { <path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.5" /> }
+        @case ('flag') { <path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /> }
+        @case ('lock-open') { <rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 7.5-2" /> }
         @case ('card') { <rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /> }
         @case ('users') {
           <circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" />

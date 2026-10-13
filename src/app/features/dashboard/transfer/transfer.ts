@@ -16,6 +16,7 @@ import { ButtonLink } from '../../../shared/ui/button-link';
 import { FieldError } from '../../../shared/ui/field-error';
 import { Icon } from '../../../shared/ui/icon';
 import { MoneyPipe, formatMoney } from '../../../shared/ui/money';
+import { Select, SelectOption } from '../../../shared/ui/select';
 import { BankStore, Destination, BankError, TransferReceipt } from '../data/bank-store';
 
 type Step = 'form' | 'confirm' | 'done';
@@ -36,7 +37,7 @@ const STEPS: readonly { id: Step; label: string }[] = [
 
 @Component({
   selector: 'app-transfer',
-  imports: [ButtonLink, DecimalPipe, FieldError, FormField, FormRoot, Icon, MoneyPipe, RouterLink],
+  imports: [ButtonLink, DecimalPipe, FieldError, FormField, FormRoot, Icon, MoneyPipe, RouterLink, Select],
   host: { class: 'mx-auto flex w-full max-w-2xl flex-col gap-6' },
   template: `
     <header class="flex flex-col gap-2">
@@ -79,11 +80,7 @@ const STEPS: readonly { id: Step; label: string }[] = [
 
           <div>
             <label for="from" class="mb-2 block font-medium">Desde</label>
-            <select id="from" [class]="control" [formField]="transfer.from">
-              @for (a of bank.accounts(); track a.id) {
-                <option [value]="a.id">{{ a.name }} · {{ a.balance | money: a.currency }}</option>
-              }
-            </select>
+            <app-select inputId="from" label="Desde" [options]="bank.accountOptions()" [formField]="transfer.from" />
           </div>
 
           <fieldset class="m-0 flex flex-col gap-3 border-0 p-0">
@@ -102,12 +99,7 @@ const STEPS: readonly { id: Step; label: string }[] = [
 
             @if (model().toKind === 'account') {
               <label for="to" class="sr-only">Cuenta de destino</label>
-              <select id="to" aria-describedby="to-error" [class]="control" [formField]="transfer.to">
-                <option value="" disabled>Elige una cuenta</option>
-                @for (a of bank.accounts(); track a.id) {
-                  <option [value]="a.id">{{ a.name }}</option>
-                }
-              </select>
+              <app-select inputId="to" label="Cuenta de destino" [options]="destinationOptions()" [formField]="transfer.to" placeholder="Elige una cuenta" describedBy="to-error" />
             } @else {
               <div id="to" tabindex="-1" role="radiogroup" aria-label="Integrante de tu squad" aria-describedby="to-error" class="grid gap-2 outline-none sm:grid-cols-3">
                 @for (c of bank.contacts; track c.id) {
@@ -311,6 +303,11 @@ export class Transfer {
         },
       },
     },
+  );
+
+  /** The source account can't receive its own transfer. */
+  protected readonly destinationOptions = computed<SelectOption<string>[]>(() =>
+    this.bank.accounts().map((a) => ({ value: a.id, label: a.name, disabled: a.id === this.model().from })),
   );
 
   protected readonly fromAccount = computed(() => this.bank.account(this.model().from));

@@ -34,6 +34,9 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 - **Transferir:** asistente en tres pasos (datos → confirmar → listo) entre cuentas propias, con conversión en vivo, o a tu squad. Valida saldo y destino, muestra errores junto a cada campo y un resumen enfocable al enviar.
 - **Tarjetas virtuales:** crea hasta tres tarjetas desechables con su propio tope, congélalas o elimínalas (con confirmación). Al simular una compra se aplican las reglas de verdad: tope de la tarjeta, límite mensual de juegos y saldo; cada compra suma XP, devuelve cashback según tu nivel y avisa si subiste de nivel.
 - **Squad:** paga una suscripción completa, divídela con tu squad y registra quién ya te devolvió su parte. El saldo "por cobrar" se actualiza solo.
+- **Botín de aliados:** ofertas de marcas ficticias (doble XP, descuentos, cashback extra) que se desbloquean por nivel y vencen. Al activarlas se aplican solas en la siguiente compra con tarjeta en esa tienda.
+- **Misiones semanales:** retos como "Paga 3 veces con tarjeta virtual" o "Guarda S/ 50 en tus cofres". El progreso se calcula desde el historial de movimientos y el XP se reclama con un botón.
+- **Cofres de ahorro:** metas con barra de progreso, depósitos y retiros, y redondeo automático: cada compra con tarjeta se redondea y la diferencia cae en el cofre.
 - **Simulador de préstamos:** cuota fija (sistema francés) con TEA que baja según tu nivel, gráfico de capital vs. interés por mes y cronograma completo en tabla.
 
 ![Tarjetas virtuales: tarjeta con su tope, compra simulada y creación de tarjetas](docs/dashboard-cards.png)
@@ -56,6 +59,8 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 - **Renderizado híbrido por ruta.** La landing y `/ingresar` se prerenderizan a HTML (se ven y se indexan sin JavaScript). El panel es privado y vive en el navegador, así que se renderiza solo en el cliente, detrás de un guard que recuerda a dónde ibas (`?volver=`) y rechaza destinos fuera de `/app`.
 - **Estado con signals, un store por dominio.** `BankStore` (cuentas y movimientos), `CardsStore` y `SquadStore` exponen su estado con `signal`/`computed` y persisten en `localStorage` mediante un `effect`, tolerando almacenamiento bloqueado o SSR. Las tarjetas y el squad no tocan los saldos directamente: registran movimientos a través de `BankStore.record()`, así el historial y los saldos nunca se desincronizan. Las operaciones son asíncronas, con latencia simulada, para que la UI tenga estados de carga reales.
+- **Select propio, accesible y flotante.** Los combobox usan un componente con el patrón WAI-ARIA *select-only combobox* (teclado completo, búsqueda por letra, `aria-activedescendant`). La lista vive en la *top layer* del navegador con la Popover API, así que ningún contenedor la recorta, y se integra con Signal Forms implementando `FormValueControl`.
+- **Misiones derivadas, no duplicadas.** Cada movimiento guarda su origen (tarjeta, squad, ahorro…) y las misiones calculan su progreso a partir de esos datos; no hay contadores paralelos que puedan desincronizarse.
 - **Errores de negocio en el campo.** Cuando una regla rechaza una operación (saldo, tope, límite de juegos), el `submit()` de Signal Forms devuelve el error al campo correspondiente y se muestra igual que cualquier validación.
 - **Lógica de negocio pura y testeada.** Amortización, tasas, niveles y formato de montos son funciones puras con sus tests; los componentes solo las muestran.
 - **Formularios accesibles.** Cada error se conecta a su campo con `aria-describedby`; si el envío falla aparece un resumen con enlaces a cada campo que recibe el foco. Al cambiar de página o de paso, el foco va al nuevo título.
@@ -66,9 +71,9 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ## Calidad
 
-- **35 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, persistencia), guard y redirección segura, asistente de transferencia y filtros de movimientos.
-- **9 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, congelar y eliminar tarjeta, dividir y cobrar en el squad, simulador y navegación móvil. El tipo de cambio se simula para que sean deterministas.
-- **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing y las seis páginas del panel.
+- **42 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, ofertas, cofres, misiones, persistencia), guard y redirección segura, asistente de transferencia y filtros de movimientos.
+- **12 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, oferta aplicada, cofre que completa una misión, congelar y eliminar tarjeta, squad, simulador, select solo con teclado y navegación móvil. El tipo de cambio se simula para que sean deterministas.
+- **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing y las nueve páginas del panel.
 - Todo corre en GitHub Actions en cada push.
 - **Lighthouse** sobre producción, landing:
 
@@ -87,14 +92,14 @@ src/app/
 │   ├── exchange-rate.ts      # tipo de cambio en vivo (httpResource)
 │   ├── seo.ts                # canonical / noindex por ruta
 │   └── motion/               # GSAP, Lenis y directivas de animación
-├── shared/ui/                # Icon, ProgressBar, FieldError, appButton, pipe money
+├── shared/ui/                # Select, Icon, ProgressBar, FieldError, appButton, pipe money
 └── features/
     ├── landing/              # secciones y componentes de la landing
     ├── auth/                 # /ingresar
     └── dashboard/
-        ├── data/             # modelos, BankStore, CardsStore, SquadStore, préstamos, niveles (+ tests)
+        ├── data/             # modelos y stores (banco, tarjetas, squad, ofertas, cofres, misiones) + tests
         ├── shell/            # layout: barra lateral y navegación inferior con "Más"
-        ├── overview/  movements/  transfer/  cards/  squad/  loans/
+        ├── overview/  movements/  transfer/  cards/  offers/  missions/  savings/  squad/  loans/
         └── ui/               # piezas compartidas del panel
 ```
 
@@ -117,7 +122,7 @@ Los datos del panel se guardan en tu navegador. Para volver al estado inicial us
 ## Próximos pasos
 
 - Backend real (por ejemplo Supabase) con autenticación, para que los datos sigan al usuario entre dispositivos.
-- Metas de ahorro y retos semanales que den XP extra.
+- Notificaciones cuando una oferta está por vencer o una misión queda lista.
 
 ## Autor
 

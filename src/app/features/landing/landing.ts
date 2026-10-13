@@ -5,6 +5,7 @@ import { Seo } from '../../core/seo';
 import { Bento } from './sections/bento';
 import { FinalCta } from './sections/final-cta';
 import { Hero } from './sections/hero';
+import { Partners } from './sections/partners';
 import { Security } from './sections/security';
 import { SiteFooter } from './sections/site-footer';
 import { SiteNav } from './sections/site-nav';
@@ -13,7 +14,7 @@ import { Steps } from './sections/steps';
 
 @Component({
   selector: 'app-landing',
-  imports: [SiteNav, Hero, Stats, Bento, Steps, Security, FinalCta, SiteFooter],
+  imports: [SiteNav, Hero, Stats, Partners, Bento, Steps, Security, FinalCta, SiteFooter],
   host: { class: 'relative block min-h-dvh overflow-x-clip bg-ink pt-6 text-fg' },
   template: `
     <a
@@ -35,6 +36,7 @@ import { Steps } from './sections/steps';
     <main id="contenido" tabindex="-1" class="outline-none">
       <app-hero />
       <app-stats />
+      <app-partners />
       <app-bento />
       <app-steps />
       <app-security />

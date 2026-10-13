@@ -8,8 +8,8 @@ import { Session } from '../../../core/session';
 import { Icon, IconName } from '../../../shared/ui/icon';
 import { ProgressBar } from '../../../shared/ui/progress-bar';
 import { BankStore } from '../data/bank-store';
-import { CardsStore } from '../data/cards-store';
-import { SquadStore } from '../data/squad-store';
+import { DemoData } from '../data/demo-data';
+import { MissionsStore } from '../data/missions-store';
 
 interface NavItem {
   readonly path: string;
@@ -41,26 +41,34 @@ interface NavItem {
         <span class="sr-only">— ir a la página de inicio</span>
       </a>
 
-      <nav aria-label="Panel">
-        <ul class="m-0 flex list-none flex-col gap-1 p-0">
-          @for (item of nav; track item.path) {
-            <li>
-              <a
-                [routerLink]="item.path"
-                routerLinkActive="bg-white/8 text-fg"
-                ariaCurrentWhenActive="page"
-                [routerLinkActiveOptions]="{ exact: item.exact }"
-                class="flex min-h-12 items-center gap-3 rounded-panel px-4 text-dim no-underline transition-colors hover:bg-white/5 hover:text-fg"
-              >
-                <app-icon [name]="item.icon" class="size-5" />
-                {{ item.label }}
-              </a>
-            </li>
-          }
-        </ul>
+      <nav aria-label="Panel" class="-mx-2 min-h-0 flex-1 overflow-y-auto px-2" data-lenis-prevent>
+        @for (group of groups; track group.title) {
+          <h2 class="m-0 mt-4 mb-1 px-4 eyebrow text-[11px] font-normal text-subtle first:mt-0">{{ group.title }}</h2>
+          <ul class="m-0 flex list-none flex-col gap-0.5 p-0">
+            @for (item of group.items; track item.path) {
+              <li>
+                <a
+                  [routerLink]="item.path"
+                  routerLinkActive="bg-white/8 text-fg"
+                  ariaCurrentWhenActive="page"
+                  [routerLinkActiveOptions]="{ exact: item.exact }"
+                  class="flex min-h-11 items-center gap-3 rounded-panel px-4 text-dim no-underline transition-colors hover:bg-white/5 hover:text-fg"
+                >
+                  <app-icon [name]="item.icon" class="size-5" />
+                  <span class="flex-1">{{ item.label }}</span>
+                  @if (item.path === '/app/misiones' && missions.claimable()) {
+                    <span class="grid min-w-5 place-items-center rounded-full bg-lime px-1.5 font-mono text-xs font-bold text-ink">
+                      {{ missions.claimable() }}<span class="sr-only"> para reclamar</span>
+                    </span>
+                  }
+                </a>
+              </li>
+            }
+          </ul>
+        }
       </nav>
 
-      <div class="mt-auto flex flex-col gap-4">
+      <div class="flex flex-col gap-4">
         <div class="panel flex flex-col gap-3 rounded-panel p-4">
           <div class="flex items-center gap-3">
             <span aria-hidden="true" class="grid size-10 place-items-center rounded-xl bg-lime font-display font-black text-ink uppercase">
@@ -138,7 +146,12 @@ interface NavItem {
                 (click)="closeMore()"
               >
                 <app-icon [name]="item.icon" class="size-5" />
-                {{ item.label }}
+                <span class="flex-1">{{ item.label }}</span>
+                @if (item.path === '/app/misiones' && missions.claimable()) {
+                  <span class="grid min-w-5 place-items-center rounded-full bg-lime px-1.5 font-mono text-xs font-bold text-ink">
+                    {{ missions.claimable() }}<span class="sr-only"> para reclamar</span>
+                  </span>
+                }
               </a>
             </li>
           }
@@ -181,8 +194,14 @@ interface NavItem {
             [attr.aria-expanded]="moreOpen()"
             (click)="moreOpen.set(!moreOpen())"
           >
-            <app-icon name="more" class="size-5.5" />
+            <span class="relative">
+              <app-icon name="more" class="size-5.5" />
+              @if (missions.claimable() && !moreOpen()) {
+                <span aria-hidden="true" class="absolute -top-1 -right-1.5 size-2.5 rounded-full bg-lime"></span>
+              }
+            </span>
             Más
+            @if (missions.claimable()) { <span class="sr-only">(hay misiones para reclamar)</span> }
           </button>
         </li>
       </ul>
@@ -194,23 +213,43 @@ export class DashboardShell {
   protected readonly bank = inject(BankStore);
   private readonly router = inject(Router);
   private readonly scroll = inject(SmoothScroll);
-  private readonly cards = inject(CardsStore);
-  private readonly squad = inject(SquadStore);
+  private readonly demo = inject(DemoData);
+  protected readonly missions = inject(MissionsStore);
   private readonly main = viewChild.required<ElementRef<HTMLElement>>('main');
   private readonly moreToggle = viewChild<ElementRef<HTMLButtonElement>>('moreToggle');
 
-  protected readonly nav: readonly (NavItem & { short: string })[] = [
-    { path: '/app', label: 'Resumen', short: 'Resumen', icon: 'home', exact: true },
-    { path: '/app/movimientos', label: 'Movimientos', short: 'Movim.', icon: 'list', exact: false },
-    { path: '/app/transferir', label: 'Transferir', short: 'Transferir', icon: 'send', exact: false },
-    { path: '/app/tarjetas', label: 'Tarjetas virtuales', short: 'Tarjetas', icon: 'card', exact: false },
-    { path: '/app/squad', label: 'Squad', short: 'Squad', icon: 'users', exact: false },
-    { path: '/app/prestamos', label: 'Simulador de préstamos', short: 'Préstamos', icon: 'calculator', exact: false },
+  protected readonly groups: readonly { title: string; items: readonly (NavItem & { short: string })[] }[] = [
+    {
+      title: 'Dinero',
+      items: [
+        { path: '/app', label: 'Resumen', short: 'Resumen', icon: 'home', exact: true },
+        { path: '/app/movimientos', label: 'Movimientos', short: 'Movim.', icon: 'list', exact: false },
+        { path: '/app/transferir', label: 'Transferir', short: 'Transferir', icon: 'send', exact: false },
+        { path: '/app/cofres', label: 'Cofres de ahorro', short: 'Cofres', icon: 'target', exact: false },
+      ],
+    },
+    {
+      title: 'Juego',
+      items: [
+        { path: '/app/tarjetas', label: 'Tarjetas virtuales', short: 'Tarjetas', icon: 'card', exact: false },
+        { path: '/app/botin', label: 'Botín de aliados', short: 'Botín', icon: 'tag', exact: false },
+        { path: '/app/misiones', label: 'Misiones', short: 'Misiones', icon: 'flag', exact: false },
+        { path: '/app/squad', label: 'Squad', short: 'Squad', icon: 'users', exact: false },
+      ],
+    },
+    {
+      title: 'Crédito',
+      items: [
+        { path: '/app/prestamos', label: 'Simulador de préstamos', short: 'Préstamos', icon: 'calculator', exact: false },
+      ],
+    },
   ];
+  protected readonly nav = this.groups.flatMap((g) => g.items);
 
-  /** Mobile: the first four destinations go in the bar, the rest behind "Más". */
-  protected readonly bottomItems = this.nav.filter((i) => !['/app/squad', '/app/prestamos'].includes(i.path));
-  protected readonly moreItems = this.nav.filter((i) => ['/app/squad', '/app/prestamos'].includes(i.path));
+  /** Mobile: four destinations in the bar, the rest behind "Más" (max five items). */
+  private readonly inBar = ['/app', '/app/movimientos', '/app/transferir', '/app/tarjetas'];
+  protected readonly bottomItems = this.nav.filter((i) => this.inBar.includes(i.path));
+  protected readonly moreItems = this.nav.filter((i) => !this.inBar.includes(i.path));
   protected readonly moreOpen = signal(false);
   private readonly url = signal(this.router.url);
   protected readonly moreActive = computed(() => this.moreItems.some((i) => this.url().startsWith(i.path)));
@@ -252,9 +291,7 @@ export class DashboardShell {
       setTimeout(() => this.confirmingReset.set(false), 4000);
       return;
     }
-    this.bank.reset();
-    this.cards.reset();
-    this.squad.reset();
+    this.demo.reset();
     this.confirmingReset.set(false);
   }
 

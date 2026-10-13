@@ -1,5 +1,5 @@
 import { Component, computed, inject } from '@angular/core';
-import { DecimalPipe, PercentPipe } from '@angular/common';
+import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 
 import { NOW } from '../../../core/clock';
@@ -13,11 +13,16 @@ import { dayLabel } from '../data/dates';
 import { TransactionRow } from '../ui/transaction-row';
 import { CardsStore } from '../data/cards-store';
 import { SquadStore } from '../data/squad-store';
+import { MissionsStore } from '../data/missions-store';
+import { OffersStore } from '../data/offers-store';
+import { SavingsStore } from '../data/savings-store';
+import { IconName } from '../../../shared/ui/icon';
+import { formatMoney } from '../../../shared/ui/money';
 import { annualRateForLevel } from '../data/loan';
 
 @Component({
   selector: 'app-overview',
-  imports: [ButtonLink, DecimalPipe, Icon, MoneyPipe, PercentPipe, ProgressBar, RouterLink, TransactionRow],
+  imports: [ButtonLink, DecimalPipe, Icon, MoneyPipe, ProgressBar, RouterLink, TransactionRow],
   host: { class: 'flex flex-col gap-8' },
   template: `
     <header class="flex flex-wrap items-end justify-between gap-4">
@@ -45,7 +50,7 @@ import { annualRateForLevel } from '../data/loan';
         <div class="flex flex-col gap-1.5">
           <h2 id="balance-title" class="m-0 text-sm font-normal text-label">Saldo total aproximado</h2>
           <p class="m-0 font-mono text-[clamp(34px,5vw,52px)] font-bold tracking-[-0.02em]">
-            @if (bank.netWorthPen(); as total) {
+            @if (total(); as total) {
               {{ total | money: 'PEN' }}
             } @else {
               <span class="text-faint">S/ —</span>
@@ -53,7 +58,7 @@ import { annualRateForLevel } from '../data/loan';
           </p>
           <p class="m-0 text-[13px] text-subtle" aria-live="polite">
             @if (bank.usdToPen(); as rate) {
-              Dólares valorizados a S/ {{ rate | number: '1.3-3' }} por US$ 1, tipo de cambio en vivo.
+              Incluye tus cofres. Dólares valorizados a S/ {{ rate | number: '1.3-3' }} por US$ 1, tipo de cambio en vivo.
             } @else {
               Cargando el tipo de cambio para valorizar tus dólares…
             }
@@ -163,27 +168,18 @@ import { annualRateForLevel } from '../data/loan';
       </section>
 
       <!-- Shortcuts to the other features -->
-      <a routerLink="/app/tarjetas" [class]="shortcut">
-        <span class="grid size-11 place-items-center rounded-xl bg-violet/18 text-lilac"><app-icon name="card" class="size-5" /></span>
-        <span class="flex flex-col">
-          <span class="font-display text-lg font-bold">Tarjetas virtuales</span>
-          <span class="text-sm text-muted">{{ cards.cards().length }} {{ cards.cards().length === 1 ? 'tarjeta' : 'tarjetas' }} · compra y suma XP</span>
-        </span>
-      </a>
-      <a routerLink="/app/squad" [class]="shortcut">
-        <span class="grid size-11 place-items-center rounded-xl bg-lime/14 text-lime"><app-icon name="users" class="size-5" /></span>
-        <span class="flex flex-col">
-          <span class="font-display text-lg font-bold">Tu squad te debe</span>
-          <span class="font-mono text-sm text-muted">{{ squad.pendingPen() ?? 0 | money: 'PEN' }}</span>
-        </span>
-      </a>
-      <a routerLink="/app/prestamos" [class]="shortcut">
-        <span class="grid size-11 place-items-center rounded-xl bg-white/8 text-fg"><app-icon name="calculator" class="size-5" /></span>
-        <span class="flex flex-col">
-          <span class="font-display text-lg font-bold">Préstamo con tu nivel</span>
-          <span class="font-mono text-sm text-muted">TEA {{ annualRate() | percent: '1.1-1' }}</span>
-        </span>
-      </a>
+      @for (s of shortcuts(); track s.path) {
+        <a [routerLink]="s.path" [class]="shortcut">
+          <span class="grid size-11 flex-none place-items-center rounded-xl" [class]="s.tone"><app-icon [name]="s.icon" class="size-5" /></span>
+          <span class="flex min-w-0 flex-col">
+            <span class="font-display text-lg font-bold">{{ s.title }}</span>
+            <span class="truncate text-sm text-muted">{{ s.detail }}</span>
+          </span>
+          @if (s.badge) {
+            <span class="ml-auto rounded-full bg-lime px-2 py-0.5 font-mono text-xs font-bold text-ink">{{ s.badge }}</span>
+          }
+        </a>
+      }
     </div>
   `,
 })
@@ -192,6 +188,64 @@ export class Overview {
   protected readonly bank = inject(BankStore);
   protected readonly cards = inject(CardsStore);
   protected readonly squad = inject(SquadStore);
+  protected readonly offers = inject(OffersStore);
+  protected readonly missions = inject(MissionsStore);
+  protected readonly savings = inject(SavingsStore);
+
+  /** Accounts plus savings goals: money in a goal is still the player's. */
+  protected readonly total = computed(() => {
+    const accounts = this.bank.netWorthPen();
+    const saved = this.savings.totalPen();
+    return accounts === null || saved === null ? null : accounts + saved;
+  });
+
+  protected readonly shortcuts = computed<
+    { path: string; title: string; detail: string; icon: IconName; tone: string; badge?: string }[]
+  >(() => [
+    {
+      path: '/app/tarjetas',
+      title: 'Tarjetas virtuales',
+      detail: `${this.cards.cards().length} ${this.cards.cards().length === 1 ? 'tarjeta' : 'tarjetas'} · compra y suma XP`,
+      icon: 'card',
+      tone: 'bg-violet/18 text-lilac',
+    },
+    {
+      path: '/app/botin',
+      title: 'Botín de aliados',
+      detail: `${this.offers.activeCount()} activas · ofertas por nivel`,
+      icon: 'tag',
+      tone: 'bg-ember/16 text-ember',
+    },
+    {
+      path: '/app/misiones',
+      title: 'Misiones',
+      detail: `Se renuevan en ${this.missions.daysLeft()} días`,
+      icon: 'flag',
+      tone: 'bg-lime/14 text-lime',
+      badge: this.missions.claimable() ? `${this.missions.claimable()} lista${this.missions.claimable() === 1 ? '' : 's'}` : undefined,
+    },
+    {
+      path: '/app/cofres',
+      title: 'Cofres de ahorro',
+      detail: `${formatMoney(this.savings.totalPen() ?? 0, 'PEN')} guardados`,
+      icon: 'target',
+      tone: 'bg-lime/14 text-lime',
+    },
+    {
+      path: '/app/squad',
+      title: 'Tu squad te debe',
+      detail: formatMoney(this.squad.pendingPen() ?? 0, 'PEN'),
+      icon: 'users',
+      tone: 'bg-violet/18 text-lilac',
+    },
+    {
+      path: '/app/prestamos',
+      title: 'Préstamo con tu nivel',
+      detail: `TEA ${(this.annualRate() * 100).toFixed(1)}%`,
+      icon: 'calculator',
+      tone: 'bg-white/8 text-fg',
+    },
+  ]);
   protected readonly shortcut =
     'glass flex items-center gap-4 rounded-card p-5 text-fg no-underline transition-colors hover:bg-white/8';
   private readonly now = inject(NOW);
