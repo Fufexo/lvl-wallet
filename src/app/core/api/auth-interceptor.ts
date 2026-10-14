@@ -1,7 +1,7 @@
 import { HttpErrorResponse, HttpInterceptorFn, HttpRequest } from '@angular/common/http';
 import { inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { catchError, from, of, switchMap, throwError } from 'rxjs';
+import { catchError, from, switchMap, throwError } from 'rxjs';
 
 import { Session } from '../session';
 import { AuthApi } from './auth-api';
@@ -31,15 +31,21 @@ export const authInterceptor: HttpInterceptorFn = (request, next) => {
     return throwError(() => error);
   };
 
-  const ready = auth.accessToken() ? of(true) : from(auth.refresh());
-  return ready.pipe(
-    switchMap(() => next(withToken(request))),
-    catchError((error: unknown) => {
-      if (!(error instanceof HttpErrorResponse) || error.status !== 401)
-        return throwError(() => error);
-      return from(auth.refresh()).pipe(
-        switchMap((renewed) => (renewed ? next(withToken(request)) : expire(error))),
-      );
-    }),
+  const send = () =>
+    next(withToken(request)).pipe(
+      catchError((error: unknown) => {
+        if (!(error instanceof HttpErrorResponse) || error.status !== 401)
+          return throwError(() => error);
+        return from(auth.refresh()).pipe(
+          switchMap((renewed) => (renewed ? next(withToken(request)) : expire(error))),
+        );
+      }),
+    );
+
+  if (auth.accessToken()) return send();
+  return from(auth.refresh()).pipe(
+    switchMap((renewed) =>
+      renewed ? send() : expire(new HttpErrorResponse({ status: 401, url: request.url })),
+    ),
   );
 };

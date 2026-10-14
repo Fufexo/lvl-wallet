@@ -51,6 +51,8 @@ export interface ApiTransferRequest {
 export interface LiveSnapshot {
   readonly accounts: readonly Account[];
   readonly transactions: readonly Transaction[];
+  /** The rate the server will apply to transfers, so previews match the result. */
+  readonly usdToPen: number | null;
 }
 
 const ACCOUNT_NAMES: Record<Currency, string> = {
@@ -96,7 +98,10 @@ export class LiveBank {
 
   async load(): Promise<LiveSnapshot> {
     try {
-      const accounts = await firstValueFrom(this.http.get<ApiAccount[]>('/api/accounts'));
+      const [accounts, usdToPen] = await Promise.all([
+        firstValueFrom(this.http.get<ApiAccount[]>('/api/accounts')),
+        this.serverRate(),
+      ]);
       const pages = await Promise.all(
         accounts.map((a) =>
           firstValueFrom(
@@ -108,12 +113,25 @@ export class LiveBank {
       );
       return {
         accounts: accounts.map(toAccount),
+        usdToPen,
         transactions: pages.flatMap((page, i) =>
           page.items.map((m) => toTransaction(m, accounts[i].id)),
         ),
       };
     } catch (error) {
       throw toApiError(error);
+    }
+  }
+
+  /** Optional: without it the browser's own live rate is shown. */
+  private async serverRate(): Promise<number | null> {
+    try {
+      const quote = await firstValueFrom(
+        this.http.get<{ usdToPen: number; fallback?: boolean }>('/api/fx/usd-pen'),
+      );
+      return quote.fallback ? null : quote.usdToPen;
+    } catch {
+      return null;
     }
   }
 

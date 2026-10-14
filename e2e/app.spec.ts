@@ -224,6 +224,13 @@ test.describe('real account (API mocked)', () => {
     await page.route('**/api/auth/register', (route) =>
       route.fulfill({ status: 201, json: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, user: { id: 'u1', gamertag: 'ana_gg', email: 'ana@lvl.test' } } }),
     );
+    // After a page reload the access token is gone and is renewed with the refresh cookie.
+    await page.route('**/api/auth/refresh', (route) =>
+      route.fulfill({ json: { accessToken: 'jwt-2', tokenType: 'Bearer', expiresIn: 900, user: { id: 'u1', gamertag: 'ana_gg', email: 'ana@lvl.test' } } }),
+    );
+    await page.route('**/api/fx/usd-pen', (route) =>
+      route.fulfill({ json: { usdToPen: 4, asOf: '2026-10-13T00:00:00Z', live: true, fallback: false } }),
+    );
     await page.route('**/api/accounts', (route) =>
       route.fulfill({ json: [{ id: PEN, currency: 'PEN', balance: state.pen }, { id: USD, currency: 'USD', balance: 50 }] }),
     );
@@ -271,9 +278,6 @@ test.describe('real account (API mocked)', () => {
     await mockApi(page);
     await page.route('**/api/auth/logout', (route) => route.fulfill({ status: 204 }));
     await page.addInitScript(() => localStorage.setItem('lvl.session.v1', JSON.stringify({ mode: 'live', gamertag: 'ana_gg' })));
-    await page.route('**/api/auth/refresh', (route) =>
-      route.fulfill({ json: { accessToken: 'jwt', tokenType: 'Bearer', expiresIn: 900, user: { id: 'u1', gamertag: 'ana_gg', email: 'ana@lvl.test' } } }),
-    );
 
     await page.goto('/app/tarjetas');
     await expect(page.getByText('Esta sección todavía funciona solo en el modo demo.')).toBeVisible();

@@ -55,6 +55,9 @@ export type LiveStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 const EMPTY: BankState = { accounts: [], transactions: [] };
 
+/** Coming back to the tab refreshes real data at most this often. */
+const STALE_AFTER_MS = 30_000;
+
 /** A movement about to be recorded: id and date are assigned by the store. */
 export type NewMovement = Omit<Transaction, 'id' | 'date'>;
 
@@ -86,6 +89,7 @@ export class BankStore {
   private readonly state = computed(() => (this.live() ? this.liveState() : this.demoState()));
 
   private readonly liveStatus = signal<LiveStatus>('idle');
+  private loadedAt = 0;
   readonly status = computed<LiveStatus>(() => (this.live() ? this.liveStatus() : 'ready'));
   readonly loadError = signal<string | null>(null);
 
@@ -96,7 +100,11 @@ export class BankStore {
   readonly accountOptions = computed<SelectOption<string>[]>(() =>
     this.accounts().map((a) => ({ value: a.id, label: a.name, hint: formatMoney(a.balance, a.currency) })),
   );
-  readonly usdToPen = this.fx.usdToPen;
+  /** Real accounts use the server's rate (what transfers will apply); the demo, the browser's. */
+  private readonly liveRate = signal<number | null>(null);
+  readonly usdToPen = computed(() =>
+    this.live() ? (this.liveRate() ?? this.fx.usdToPen()) : this.fx.usdToPen(),
+  );
 
   /** Newest first; movements recorded at the same instant keep "last recorded on top". */
   readonly transactions = computed(() =>
@@ -141,6 +149,7 @@ export class BankStore {
       if (!this.live()) {
         untracked(() => {
           this.liveState.set(EMPTY);
+          this.liveRate.set(null);
           this.liveStatus.set('idle');
         });
       }
@@ -157,6 +166,13 @@ export class BankStore {
    * transfer) update in place, so the page on screen is never unmounted, and if one fails the
    * last data stays visible.
    */
+  /** Picks up money other players sent while this tab was in the background. */
+  refreshIfStale(): void {
+    if (this.live() && this.liveStatus() === 'ready' && Date.now() - this.loadedAt > STALE_AFTER_MS) {
+      void this.reload();
+    }
+  }
+
   async reload(): Promise<void> {
     if (!this.live()) return;
     const firstLoad = this.liveStatus() !== 'ready';
@@ -165,8 +181,11 @@ export class BankStore {
       this.loadError.set(null);
     }
     try {
-      this.liveState.set(await this.api.load());
+      const { usdToPen, ...state } = await this.api.load();
+      this.liveState.set(state);
+      this.liveRate.set(usdToPen);
       this.liveStatus.set('ready');
+      this.loadedAt = Date.now();
     } catch (error) {
       if (!firstLoad) return;
       this.loadError.set(error instanceof ApiError ? error.message : 'No pudimos cargar tus cuentas.');
@@ -263,7 +282,9 @@ export class BankStore {
         rate: t.fxRate ?? null,
       };
     } catch (error) {
-      throw new BankError(error instanceof ApiError ? error.message : 'No pudimos completar la transferencia.');
+      // Prefer the message about the exact field ("Usa como máximo dos decimales.") over the summary.
+      const message = error instanceof ApiError ? (error.fields[0]?.message ?? error.message) : null;
+      throw new BankError(message ?? 'No pudimos completar la transferencia.');
     }
   }
 

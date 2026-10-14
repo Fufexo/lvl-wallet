@@ -10,7 +10,16 @@ import {
 } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
-import { FormField, FormRoot, form, maxLength, min, required, validate } from '@angular/forms/signals';
+import {
+  FormField,
+  FormRoot,
+  form,
+  max,
+  maxLength,
+  min,
+  required,
+  validate,
+} from '@angular/forms/signals';
 
 import { Button } from '../../../shared/ui/button';
 import { FieldError } from '../../../shared/ui/field-error';
@@ -83,6 +92,13 @@ export class Transfer {
       );
       required(p.amount, { message: 'Escribe cuánto quieres enviar.' });
       min(p.amount, 1, { message: 'El monto mínimo es 1.' });
+      max(p.amount, 100_000, { message: 'El monto máximo por transferencia es 100,000.' });
+      validate(p.amount, ({ value }) => {
+        const amount = value();
+        return amount !== null && Math.abs(amount * 100 - Math.round(amount * 100)) > 1e-6
+          ? { kind: 'decimals', message: 'Usa como máximo dos decimales.' }
+          : undefined;
+      });
       validate(p.amount, ({ value, valueOf }) => {
         const account = this.bank.account(valueOf(p.from));
         const amount = value();

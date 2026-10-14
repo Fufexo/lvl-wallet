@@ -156,11 +156,10 @@ describe('AuthApi and the interceptor', () => {
 
     const call = firstValueFrom(TestBed.inject(HttpClient).get('/api/accounts'));
     http.expectOne('/api/auth/refresh').flush(null, { status: 401, statusText: '' });
-    await tick();
-    http.expectOne('/api/accounts').flush(null, { status: 401, statusText: '' });
-    http.expectOne('/api/auth/refresh').flush(null, { status: 401, statusText: '' });
 
     await expect(call).rejects.toBeInstanceOf(HttpErrorResponse);
+    // No point calling the API without a session.
+    http.expectNone('/api/accounts');
     expect(TestBed.inject(Session).signedIn()).toBe(false);
     expect(navigate).toHaveBeenCalledWith(
       ['/ingresar'],

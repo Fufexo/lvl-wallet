@@ -24,6 +24,16 @@ export interface RegisterRequest {
 }
 
 /**
+ * Every tab shares the refresh cookie. A Web Lock makes tabs renew one after another, so no tab
+ * ever presents a token that another tab has just rotated (which would look like a replay and
+ * end the session). Browsers without Web Locks renew directly.
+ */
+function acrossTabs<T>(work: () => Promise<T>): Promise<T> {
+  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks;
+  return locks ? locks.request('lvl-auth-refresh', work) : work();
+}
+
+/**
  * Sign-in against the LVL API. The access token stays in memory only (a page reload gets a new
  * one through the HttpOnly refresh cookie), so a script injected into the page cannot steal a
  * long-lived credential from storage.
@@ -53,7 +63,7 @@ export class AuthApi {
    * end the session.
    */
   refresh(): Promise<boolean> {
-    this.refreshing ??= this.renew().finally(() => (this.refreshing = null));
+    this.refreshing ??= acrossTabs(() => this.renew()).finally(() => (this.refreshing = null));
     return this.refreshing;
   }
 

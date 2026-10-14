@@ -28,6 +28,7 @@ interface NavItem {
   host: {
     class: 'block min-h-dvh bg-ink text-fg lg:grid lg:grid-cols-[272px_minmax(0,1fr)]',
     '(document:keydown.escape)': 'closeMore(true)',
+    '(document:visibilitychange)': 'onVisibilityChange()',
   },
   templateUrl: './dashboard-shell.html',
 })
@@ -131,6 +132,10 @@ export class DashboardShell {
     }
     this.demo.reset();
     this.confirmingReset.set(false);
+  }
+
+  protected onVisibilityChange(): void {
+    if (document.visibilityState === 'visible') this.bank.refreshIfStale();
   }
 
   protected closeMore(restoreFocus = false): void {

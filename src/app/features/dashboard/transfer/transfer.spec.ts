@@ -54,6 +54,17 @@ describe('Transfer wizard', () => {
     expect(el.querySelector('#amount-error')?.textContent).toContain('Tu saldo disponible es S/ 1,284.50.');
   });
 
+  it('accepts at most two decimals, like the API', async () => {
+    await type('#amount', '10.005');
+    button('Revisar transferencia').click();
+    await fixture.whenStable();
+
+    expect(el.querySelector('#amount-error')?.textContent).toContain('Usa como máximo dos decimales.');
+
+    await type('#amount', '10.10');
+    expect(el.querySelector('#amount-error')?.textContent ?? '').not.toContain('decimales');
+  });
+
   it('previews the conversion, confirms and sends', async () => {
     vi.useFakeTimers({ toFake: ['setTimeout'] });
     try {

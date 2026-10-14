@@ -72,6 +72,7 @@ describe('BankStore with a real account', () => {
 
   /** Answers the requests of one reload: accounts, then each account's movements. */
   async function respondToLoad(penBalance = 500): Promise<void> {
+    http.expectOne('/api/fx/usd-pen').flush({ usdToPen: 3.5, live: true, fallback: false });
     http.expectOne('/api/accounts').flush([
       { id: PEN, currency: 'PEN', balance: penBalance },
       { id: USD, currency: 'USD', balance: 50 },
@@ -103,6 +104,8 @@ describe('BankStore with a real account', () => {
     expect(store.accounts().map((a) => a.name)).toEqual(['Cuenta en soles', 'Cuenta en dólares']);
     expect(store.transactions()).toHaveLength(2);
     expect(store.totalXp()).toBe(0);
+    // The server's rate wins over the browser's (3.75 in this test).
+    expect(store.usdToPen()).toBe(3.5);
     expect(localStorage.getItem('lvl.bank.v2') ?? '').not.toContain(PEN);
   });
 
