@@ -112,6 +112,27 @@
     </ul>
   </section>
 
+  <!-- Real accounts: the rate the server applies to currency exchanges -->
+  @if (bank.live()) {
+    <section aria-labelledby="rate-title" class="glass flex flex-col gap-4 rounded-card p-7">
+      <h2 id="rate-title" class="m-0 eyebrow text-xs font-normal text-lime">Tipo de cambio</h2>
+      <p class="m-0 font-mono text-4xl font-bold">
+        @if (bank.usdToPen(); as rate) {
+          S/ {{ rate | number: '1.3-3' }}
+        } @else {
+          <span class="text-faint">S/ —</span>
+        }
+      </p>
+      <p class="m-0 text-sm text-muted">
+        Por cada US$ 1. Es el que aplica el servidor cuando cambias entre tus cuentas, así que lo que ves es lo que llega.
+      </p>
+      <a appButton="glass" routerLink="/app/transferir" class="mt-auto self-start">
+        <app-icon name="swap" class="size-4.5" />
+        Cambiar soles y dólares
+      </a>
+    </section>
+  }
+
   <!-- Games limit (demo: purchases are not on the API yet) -->
   @if (!bank.live()) {
     <section aria-labelledby="limit-title" class="glass flex flex-col gap-4 rounded-card p-7">

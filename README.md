@@ -2,12 +2,12 @@
 
 [![CI](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml/badge.svg)](https://github.com/Fufexo/lvl-wallet/actions/workflows/ci.yml)
 
-Billetera digital ficticia para gamers en Perú: una landing animada y un panel bancario de demo con cuentas en soles y dólares, transferencias con tipo de cambio en vivo, tarjetas virtuales, ofertas que se desbloquean por nivel, misiones semanales, cofres de ahorro y un simulador de préstamos que premia tu nivel.
+Billetera digital ficticia para gamers en Perú: una landing animada y un panel bancario con cuentas en soles y dólares, transferencias con tipo de cambio en vivo, tarjetas virtuales, ofertas que se desbloquean por nivel, misiones semanales, cofres de ahorro y un simulador de préstamos que premia tu nivel.
 
 **Demo en vivo → [lvl-wallet.vercel.app](https://lvl-wallet.vercel.app)** · En [/ingresar](https://lvl-wallet.vercel.app/ingresar) eliges cómo entrar al panel:
 
 - **Probar demo:** cualquier gamertag, sin contraseña; los datos de ejemplo viven en tu navegador.
-- **Cuenta real:** registro e ingreso contra la [API de LVL](https://github.com/Fufexo/lvl-api) (Spring Boot); tus saldos, movimientos y transferencias se guardan en el servidor.
+- **Cuenta real:** registro e ingreso contra la [API de LVL](https://github.com/Fufexo/lvl-api) (Java + Spring Boot, [Swagger](https://lvl-api.onrender.com/swagger-ui.html)); tus saldos, movimientos y transferencias se guardan en el servidor.
 
 ![Landing de LVL en escritorio](docs/landing-desktop.png)
 
@@ -50,7 +50,16 @@ Billetera digital ficticia para gamers en Perú: una landing animada y un panel 
 
 ### Dos modos: demo y cuenta real
 
-Con una cuenta real, el resumen, los movimientos y las transferencias vienen de la API: saldos en un libro contable de partida doble, transferencias a otros jugadores por gamertag y reintentos idempotentes. Tarjetas, botín, misiones, cofres y squad siguen en modo demo mientras se migran; en una cuenta real explican eso y ofrecen abrir la demo.
+- **Ingreso con tres caminos:** probar la demo, ingresar o crear cuenta. Botón para mostrar la contraseña, compatible con gestores de contraseñas, y errores del servidor junto a cada campo ("Ese gamertag ya está en uso.").
+- **Cuenta real:** el resumen, los movimientos y las transferencias vienen de la [API](https://github.com/Fufexo/lvl-api). Los saldos salen de un libro contable de partida doble, puedes enviar dinero a otro jugador por su gamertag y los reintentos nunca cobran dos veces. El resumen muestra el tipo de cambio que aplica el servidor, para que la vista previa coincida con lo que llega.
+- **Tarjetas, botín, misiones, cofres y squad** siguen en modo demo mientras se migran a la API. En una cuenta real lo explican y ofrecen abrir la demo, nunca un callejón sin salida.
+- **Servidor que despierta:** la API corre en un plan gratuito que se duerme. Si la carga tarda, la pantalla lo explica en lugar de mostrar un spinner mudo.
+
+![Ingreso: probar la demo, ingresar o crear una cuenta real](docs/sign-in.png)
+
+![Cuenta real: saldos del servidor, tipo de cambio que aplica la API y movimientos entre jugadores](docs/real-account.png)
+
+![Transferencia a otro jugador por gamertag](docs/real-transfer.png)
 
 ## Stack
 
@@ -63,7 +72,7 @@ Con una cuenta real, el resumen, los movimientos y las transferencias vienen de 
 | Animación | CSS para la intro del hero; GSAP 3 (ScrollTrigger) + Lenis para el resto |
 | Tests | Vitest (unitarios), Playwright + axe-core (end-to-end), GitHub Actions |
 | Backend | [lvl-api](https://github.com/Fufexo/lvl-api): Java 21 + Spring Boot 4, PostgreSQL |
-| Deploy | Vercel (front) · Render + Neon (API) |
+| Deploy | Vercel (front, con rewrite de `/api`) · Render + Neon (API) |
 
 ## Decisiones técnicas
 
@@ -88,8 +97,8 @@ Con una cuenta real, el resumen, los movimientos y las transferencias vienen de 
 
 - **60 tests unitarios** (Vitest): préstamos, niveles, stores (transferencias, tarjetas, squad, ofertas, cofres, misiones, persistencia), guard y redirección segura, asistente de transferencia, filtros de movimientos, errores de la API, interceptor (renovación única, reintento tras 401, sesión expirada) y modo cuenta real.
 - **14 tests end-to-end** (Playwright) sobre el build de producción: ingreso con guard, transferencia completa, compra con tarjeta que sube de nivel, oferta aplicada, cofre que completa una misión, congelar y eliminar tarjeta, squad, simulador, select solo con teclado, navegación móvil y la cuenta real (registro, saldos del servidor y pago a otro jugador, con la API simulada). El tipo de cambio se simula para que sean deterministas.
-- **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing y las nueve páginas del panel.
-- Todo corre en GitHub Actions en cada push.
+- **axe-core** (WCAG 2.2 AA + buenas prácticas) dentro de los tests e2e: 0 violaciones en la landing, las nueve páginas del panel, el ingreso y las pantallas de la cuenta real.
+- Todo corre en GitHub Actions en cada push. El backend tiene sus propios 40 tests contra Postgres real ([lvl-api](https://github.com/Fufexo/lvl-api#calidad)).
 - **Lighthouse** sobre producción, landing:
 
 | | Rendimiento | Accesibilidad | Buenas prácticas | SEO |
@@ -102,7 +111,8 @@ Con una cuenta real, el resumen, los movimientos y las transferencias vienen de 
 ```
 src/app/
 ├── core/
-│   ├── session.ts            # sesión de demo + guard requireSession
+│   ├── api/                  # AuthApi (tokens en memoria), interceptor y errores de la API
+│   ├── session.ts            # sesión demo o cuenta real + guards
 │   ├── local-store.ts        # localStorage seguro (SSR y modo privado)
 │   ├── exchange-rate.ts      # tipo de cambio en vivo (httpResource)
 │   ├── seo.ts                # canonical / noindex por ruta
@@ -113,8 +123,10 @@ src/app/
     ├── auth/                 # /ingresar
     └── dashboard/
         ├── data/             # modelos y stores (banco, tarjetas, squad, ofertas, cofres, misiones) + tests
+        │                     #   live-bank.ts: cuentas, movimientos y transferencias de la API
         ├── shell/            # layout: barra lateral y navegación inferior con "Más"
         ├── overview/  movements/  transfer/  cards/  offers/  missions/  savings/  squad/  loans/
+        ├── demo-only/        # aviso para secciones que aún no usan la API
         └── ui/               # piezas compartidas del panel
 ```
 
